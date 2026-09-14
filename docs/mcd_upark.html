@@ -1,0 +1,142 @@
+<title>MCD U-Park</title>
+<style>
+  body { padding: 16px; }
+  pre.mermaid { max-width: 100%; overflow-x: auto; }
+</style>
+
+<h1>Modèle conceptuel de données — U-Park</h1>
+
+<pre class="mermaid">
+erDiagram
+  ROLE ||--o{ ATTRIBUTION_ROLE : concerne
+  UTILISATEUR ||--o{ ATTRIBUTION_ROLE : possede
+  ROLE ||--o{ CIBLE_ROLE : cible
+  REGLE_ACCES ||--o{ CIBLE_ROLE : definit
+
+  PARKING ||--o{ ZONE : possede
+  ZONE ||--o{ PLACE : contient
+  ZONE ||--o{ REGLE_ACCES : soumise_a
+  ZONE ||--o{ BLOCAGE : subit
+  ZONE ||--o{ INCIDENT : localise
+
+  UTILISATEUR ||--o{ RESERVATION : effectue
+  PLACE ||--o{ RESERVATION : concerne
+
+  UTILISATEUR ||--o{ BLOCAGE : decide
+
+  UTILISATEUR ||--o{ DEMANDE_VISITEUR : demande
+  UTILISATEUR o|--o{ DEMANDE_VISITEUR : traite
+  RESERVATION o|--o| DEMANDE_VISITEUR : genere
+
+  UTILISATEUR ||--o{ INCIDENT : signale
+  UTILISATEUR o|--o{ INCIDENT : traite
+
+  UTILISATEUR ||--o{ TRACE : genere
+
+  ROLE {
+    string code_role PK
+    string libelle_role
+    string description_role
+  }
+  UTILISATEUR {
+    int id_utilisateur PK
+    string email
+    string mot_de_passe_hash
+    string nom_utilisateur
+    string prenom_utilisateur
+    string statut_compte
+    boolean besoin_pmr
+    datetime date_creation_compte
+  }
+  ATTRIBUTION_ROLE {
+    int id_utilisateur FK
+    string code_role FK
+    date date_attribution
+  }
+  PARKING {
+    int id_parking PK
+    string nom_parking
+    string localisation_parking
+    string description_parking
+  }
+  ZONE {
+    int id_zone PK
+    int id_parking FK
+    string nom_zone
+    int capacite_theorique
+    time heure_ouverture
+    time heure_fermeture
+    boolean zone_active
+  }
+  PLACE {
+    int id_place PK
+    int id_zone FK
+    string numero_place
+    string type_place
+    string etat_place
+  }
+  REGLE_ACCES {
+    int id_regle PK
+    int id_zone FK
+    string libelle_regle
+    int niveau_priorite
+    date date_debut_validite
+    date date_fin_validite
+    boolean regle_active
+  }
+  CIBLE_ROLE {
+    int id_regle FK
+    string code_role FK
+  }
+  RESERVATION {
+    int id_reservation PK
+    int id_utilisateur FK
+    int id_place FK
+    datetime date_debut
+    datetime date_fin
+    string statut_reservation
+    datetime date_creation_resa
+    datetime date_annulation
+    string motif_annulation
+  }
+  BLOCAGE {
+    int id_blocage PK
+    int id_zone FK
+    int id_utilisateur FK
+    string motif_blocage
+    datetime date_debut_blocage
+    datetime date_fin_blocage
+  }
+  DEMANDE_VISITEUR {
+    int id_demande PK
+    int id_demandeur FK
+    int id_administrateur FK
+    int id_reservation FK
+    datetime date_demande
+    datetime date_visite_souhaitee
+    string motif_demande
+    string statut_demande
+    datetime date_traitement
+    string commentaire_traitement
+  }
+  INCIDENT {
+    int id_incident PK
+    int id_zone FK
+    int id_utilisateur_signalement FK
+    int id_utilisateur_traitant FK
+    string description_incident
+    string priorite_incident
+    string statut_incident
+    datetime date_signalement
+    datetime date_resolution
+  }
+  TRACE {
+    int id_trace PK
+    int id_utilisateur FK
+    datetime horodatage
+    string type_action
+    string entite_cible
+    int identifiant_cible
+    string detail_action
+  }
+</pre>
