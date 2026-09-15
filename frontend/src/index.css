@@ -1,0 +1,223 @@
+:root {
+  --text: #2d2b32;
+  --text-muted: #6b6375;
+  --bg: #ffffff;
+  --bg-subtle: #f7f6f9;
+  --border: #e5e4e7;
+  --primary: #2f5fdb;
+  --primary-hover: #2650b8;
+  --danger: #c0392b;
+  --success: #1f7a3d;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+a {
+  color: var(--primary);
+}
+
+.layout__header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.layout__brand {
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.layout__nav {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+}
+
+.layout__nav a {
+  text-decoration: none;
+  color: var(--text-muted);
+}
+
+.layout__nav a.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.layout__auth {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.layout__content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.form-page {
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.form-page form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-page label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.form-checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+input,
+select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary);
+  color: white;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--primary-hover);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-error {
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.form-success {
+  color: var(--success);
+  font-size: 0.9rem;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.parking-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.zone-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.zone-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--bg-subtle);
+}
+
+.zone-card--blocked {
+  opacity: 0.7;
+  border-color: var(--danger);
+}
+
+.zone-card h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.zone-card p {
+  margin: 2px 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.place-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.place-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.reservation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.reservation-form label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg);
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
