@@ -9,6 +9,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,12 +42,24 @@ export default function LoginPage() {
         </label>
         <label>
           Mot de passe
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <div className="password-field">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={
+                showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"
+              }
+            >
+              {showPassword ? "Masquer" : "Afficher"}
+            </button>
+          </div>
         </label>
         {error && <p className="form-error">{error}</p>}
         <button type="submit" disabled={submitting}>

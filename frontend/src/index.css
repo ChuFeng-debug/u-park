@@ -6,9 +6,12 @@
   --border: #e5e4e7;
   --primary: #2f5fdb;
   --primary-hover: #2650b8;
+  --accent: #f28022;
+  --accent-hover: #d96d14;
   --danger: #c0392b;
   --success: #1f7a3d;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-brand: "Outfit", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color-scheme: light;
 }
 
@@ -31,15 +34,18 @@ a {
   align-items: center;
   gap: 24px;
   padding: 12px 24px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  background: var(--primary);
+  border-bottom: 1px solid var(--primary-hover);
+  color: white;
 }
 
 .layout__brand {
-  font-weight: 700;
-  font-size: 1.2rem;
+  font-family: var(--font-brand);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
   text-decoration: none;
-  color: var(--text);
+  color: white;
 }
 
 .layout__nav {
@@ -50,11 +56,15 @@ a {
 
 .layout__nav a {
   text-decoration: none;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.layout__nav a:hover {
+  color: white;
 }
 
 .layout__nav a.active {
-  color: var(--primary);
+  color: white;
   font-weight: 600;
 }
 
@@ -63,6 +73,34 @@ a {
   align-items: center;
   gap: 12px;
   font-size: 0.9rem;
+  color: white;
+}
+
+/* Boutons du header : fond clair, texte noir, pour ressortir sur le bleu. */
+.header-button {
+  display: inline-block;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: white;
+  color: #000;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.header-button:hover {
+  background: #e9e9ef;
+  color: #000;
+}
+
+.header-button--accent {
+  background: var(--accent);
+}
+
+.header-button--accent:hover {
+  background: var(--accent-hover);
 }
 
 .layout__content {
@@ -102,6 +140,39 @@ select {
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 1rem;
+}
+
+/* Champ mot de passe avec bouton afficher/masquer superposé à droite. */
+.password-field {
+  position: relative;
+  display: flex;
+}
+
+.password-field input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 84px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.password-toggle:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--danger);
 }
 
 button {

@@ -23,12 +23,23 @@ export default function RegisterPage() {
     role: "etudiant" as Role,
     besoin_pmr: false,
   });
+  // Hors de `form` : ce champ sert uniquement à la vérification, il n'est pas envoyé à l'API.
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const passwordsMismatch =
+    passwordConfirm.length > 0 && passwordConfirm !== form.password;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    if (form.password !== passwordConfirm) {
+      setError("Les mots de passe ne correspondent pas");
+      return;
+    }
     setSubmitting(true);
     try {
       await register(form);
@@ -71,14 +82,53 @@ export default function RegisterPage() {
         </label>
         <label>
           Mot de passe
-          <input
-            type="password"
-            minLength={8}
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            required
-          />
+          <div className="password-field">
+            <input
+              type={showPassword ? "text" : "password"}
+              minLength={8}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={
+                showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"
+              }
+            >
+              {showPassword ? "Masquer" : "Afficher"}
+            </button>
+          </div>
         </label>
+        <label>
+          Confirmation du mot de passe
+          <div className="password-field">
+            <input
+              type={showPasswordConfirm ? "text" : "password"}
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              aria-invalid={passwordsMismatch}
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+              aria-label={
+                showPasswordConfirm
+                  ? "Masquer la confirmation du mot de passe"
+                  : "Afficher la confirmation du mot de passe"
+              }
+            >
+              {showPasswordConfirm ? "Masquer" : "Afficher"}
+            </button>
+          </div>
+        </label>
+        {passwordsMismatch && (
+          <p className="form-error">Les mots de passe ne correspondent pas</p>
+        )}
         <label>
           Profil
           <select

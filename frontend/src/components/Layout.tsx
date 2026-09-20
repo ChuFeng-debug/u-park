@@ -20,14 +20,18 @@ export default function Layout() {
               <span>
                 {user.prenom_utilisateur} ({user.roles.join(", ")})
               </span>
-              <button type="button" onClick={logout}>
+              <button type="button" className="header-button" onClick={logout}>
                 Déconnexion
               </button>
             </>
           ) : (
             <>
-              <Link to="/login">Connexion</Link>
-              <Link to="/register">Inscription</Link>
+              <Link to="/login" className="header-button">
+                Connexion
+              </Link>
+              <Link to="/register" className="header-button header-button--accent">
+                Inscription
+              </Link>
             </>
           )}
         </div>
