@@ -8,6 +8,7 @@ export default function Layout() {
     <div className="layout">
       <header className="layout__header">
         <Link to="/" className="layout__brand">
+          <span className="layout__brand-mark">P</span>
           U-Park
         </Link>
         <nav className="layout__nav">

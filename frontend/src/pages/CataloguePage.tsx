@@ -5,6 +5,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { extractErrorMessage } from "../api/http";
 import type { ParkingOut, PlaceOut, ZoneWithDisponibilite } from "../types/api";
 
+function availabilityBadgeClass(libres: number, total: number): string {
+  if (total === 0 || libres === 0) return "badge--full";
+  if (libres / total <= 0.25) return "badge--tight";
+  return "badge--available";
+}
+
 function toDatetimeLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
@@ -83,7 +89,16 @@ function ZonePlaces({ zone }: { zone: ZoneWithDisponibilite }) {
       {places.map((place) => (
         <li key={place.id_place}>
           <span>
-            {place.numero_place} · {place.type_place} · {place.etat_place}
+            <strong>{place.numero_place}</strong> · {place.type_place}
+          </span>
+          <span
+            className={`badge ${place.etat_place === "libre" ? "badge--available" : "badge--full"}`}
+          >
+            {place.etat_place === "libre"
+              ? "libre"
+              : place.etat_place === "occupee"
+                ? "occupée"
+                : "hors service"}
           </span>
           {user && zone.zone_active && place.etat_place === "libre" && (
             <>
@@ -149,8 +164,15 @@ export default function CataloguePage() {
                   {zone.heure_ouverture} – {zone.heure_fermeture}
                 </p>
                 <p>
-                  {zone.nombre_places_libres} / {zone.nombre_places} places libres
-                  {!zone.zone_active && " (zone bloquée)"}
+                  {zone.zone_active ? (
+                    <span
+                      className={`badge ${availabilityBadgeClass(zone.nombre_places_libres, zone.nombre_places)}`}
+                    >
+                      {zone.nombre_places_libres} / {zone.nombre_places} libres
+                    </span>
+                  ) : (
+                    <span className="badge badge--blocked">zone bloquée</span>
+                  )}
                 </p>
                 <ZonePlaces zone={zone} />
               </div>
