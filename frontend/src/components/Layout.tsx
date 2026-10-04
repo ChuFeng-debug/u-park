@@ -40,6 +40,11 @@ export default function Layout() {
       <main className="layout__content">
         <Outlet />
       </main>
+      <footer className="layout__footer">
+        <div className="layout__footer-inner">
+          <p className="layout__footer-copy">© 2026 Université Gustave Eiffel</p>
+        </div>
+      </footer>
     </div>
   );
 }

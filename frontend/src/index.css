@@ -74,6 +74,12 @@ h2 {
 
 /* ---------- Header ---------- */
 
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .layout__header {
   display: flex;
   align-items: center;
@@ -178,9 +184,46 @@ h2 {
 }
 
 .layout__content {
+  width: 100%;
   max-width: 1000px;
   margin: 0 auto;
   padding: 32px 20px 72px;
+}
+
+/* ---------- Footer ---------- */
+
+.layout__footer {
+  margin-top: auto;
+  background: #000;
+  color: white;
+}
+
+.layout__footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 22px 20px;
+}
+
+.layout__footer-copy {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.layout__footer a {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.layout__footer a:hover {
+  color: white;
+  text-decoration: underline;
 }
 
 /* ---------- Forms ---------- */
@@ -299,6 +342,21 @@ button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
+}
+
+/* ----- Secondary action ----- */
+.link-button {
+  align-self: flex-start;
+  padding: 4px 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.85rem;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  background: transparent;
+  color: var(--primary-hover);
 }
 
 .form-error {

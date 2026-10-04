@@ -69,6 +69,8 @@ function ReservationForm({ place, onDone }: { place: PlaceOut; onDone: () => voi
 function ZonePlaces({ zone }: { zone: ZoneWithDisponibilite }) {
   const { user } = useAuth();
   const [places, setPlaces] = useState<PlaceOut[] | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [reservingPlaceId, setReservingPlaceId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -76,51 +78,74 @@ function ZonePlaces({ zone }: { zone: ZoneWithDisponibilite }) {
     setPlaces(await listPlaces(zone.id_zone));
   }
 
-  if (places === null) {
+  async function show() {
+    if (places === null) {
+      setLoading(true);
+      try {
+        await load();
+      } finally {
+        setLoading(false);
+      }
+    }
+    setExpanded(true);
+  }
+
+  function hide() {
+    setExpanded(false);
+    setReservingPlaceId(null);
+    setMessage(null);
+  }
+
+  if (!expanded || places === null) {
     return (
-      <button type="button" onClick={load}>
-        Voir les places
+      <button type="button" onClick={show} disabled={loading}>
+        {loading ? "Chargement…" : "Voir les places"}
       </button>
     );
   }
 
   return (
-    <ul className="place-list">
-      {places.map((place) => (
-        <li key={place.id_place}>
-          <span>
-            <strong>{place.numero_place}</strong> · {place.type_place}
-          </span>
-          <span
-            className={`badge ${place.etat_place === "libre" ? "badge--available" : "badge--full"}`}
-          >
-            {place.etat_place === "libre"
-              ? "libre"
-              : place.etat_place === "occupee"
-                ? "occupée"
-                : "hors service"}
-          </span>
-          {user && zone.zone_active && place.etat_place === "libre" && (
-            <>
-              <button type="button" onClick={() => setReservingPlaceId(place.id_place)}>
-                Réserver
-              </button>
-              {reservingPlaceId === place.id_place && (
-                <ReservationForm
-                  place={place}
-                  onDone={() => {
-                    setReservingPlaceId(null);
-                    setMessage(`Place ${place.numero_place} réservée.`);
-                    void load();
-                  }}
-                />
-              )}
-            </>
-          )}
-        </li>
-      ))}
+    <>
+      <ul className="place-list">
+        {places.map((place) => (
+          <li key={place.id_place}>
+            <span>
+              <strong>{place.numero_place}</strong> · {place.type_place}
+            </span>
+            <span
+              className={`badge ${place.etat_place === "libre" ? "badge--available" : "badge--full"}`}
+            >
+              {place.etat_place === "libre"
+                ? "libre"
+                : place.etat_place === "occupee"
+                  ? "occupée"
+                  : "hors service"}
+            </span>
+            {user && zone.zone_active && place.etat_place === "libre" && (
+              <>
+                <button type="button" onClick={() => setReservingPlaceId(place.id_place)}>
+                  Réserver
+                </button>
+                {reservingPlaceId === place.id_place && (
+                  <ReservationForm
+                    place={place}
+                    onDone={() => {
+                      setReservingPlaceId(null);
+                      setMessage(`Place ${place.numero_place} réservée.`);
+                      void load();
+                    }}
+                  />
+                )}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
       {message && <p className="form-success">{message}</p>}
-    </ul>
+      <button type="button" className="link-button" onClick={hide}>
+        Afficher moins
+      </button>
+    </>
   );
 }
 
