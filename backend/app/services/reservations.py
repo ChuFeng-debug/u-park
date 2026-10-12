@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models import CibleRole, Place, RegleAcces, Reservation, Utilisateur, Zone
+from app.services.disponibilites import Creneau, zones_indisponibles
 from app.services.exceptions import (
     AccessDeniedError,
     ConflictError,
@@ -42,7 +43,7 @@ def _check_slot_in_opening_hours(zone: Zone, date_debut: datetime, date_fin: dat
     return debut_local.date()
 
 
-def _allowed_roles_for_zone(db: Session, id_zone: int, jour: date) -> set[str] | None:
+def roles_autorises(db: Session, id_zone: int, jour: date) -> set[str] | None:
     """Rôles autorisés par les règles actives de la zone, None si aucune règle."""
     regles = (
         db.query(RegleAcces)
@@ -71,7 +72,7 @@ def _check_access(
         return
     if place.type_place == "pmr" and not user.besoin_pmr:
         raise AccessDeniedError("Place réservée aux personnes à mobilité réduite")
-    allowed = _allowed_roles_for_zone(db, zone.id_zone, jour)
+    allowed = roles_autorises(db, zone.id_zone, jour)
     if allowed is not None and not user_roles & allowed:
         raise AccessDeniedError("Votre profil n'a pas accès à cette zone")
 
@@ -128,8 +129,8 @@ def create_reservation(
         raise ConflictError("Place hors service")
 
     zone = db.get(Zone, place.id_zone)
-    if zone is None or not zone.zone_active:
-        raise ConflictError("Zone bloquée ou inconnue")
+    if zone is None or zones_indisponibles(db, [zone.id_zone], Creneau(date_debut, date_fin)):
+        raise ConflictError("Zone bloquée ou inconnue sur ce créneau")
 
     jour = _check_slot_in_opening_hours(zone, date_debut, date_fin)
     _check_access(db, user, user_roles, zone, place, jour)

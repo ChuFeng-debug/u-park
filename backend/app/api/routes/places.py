@@ -1,23 +1,38 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
 from app.models import Place, Zone
-from app.schemas.place import PlaceCreate, PlaceOut, PlaceUpdate
+from app.schemas.place import PlaceCreate, PlaceOut, PlaceUpdate, PlaceWithDisponibilite
+from app.services.disponibilites import Creneau, places_disponibles
 
 router = APIRouter(prefix="/places", tags=["places"])
 
 
-@router.get("", response_model=list[PlaceOut])
+@router.get("", response_model=list[PlaceWithDisponibilite])
 def list_places(
     id_zone: int | None = Query(default=None),
+    debut: datetime | None = Query(default=None, description="Début du créneau (ISO 8601)"),
+    fin: datetime | None = Query(default=None, description="Fin du créneau (ISO 8601)"),
     db: Session = Depends(get_db),
-) -> list[Place]:
+) -> list[PlaceWithDisponibilite]:
+    """Places avec leur disponibilité sur le créneau [debut, fin[ (par défaut : maintenant)."""
+    creneau = Creneau(debut, fin)
     query = db.query(Place)
     if id_zone is not None:
         query = query.filter(Place.id_zone == id_zone)
-    return query.order_by(Place.numero_place).all()
+    places = query.order_by(Place.numero_place).all()
+    disponibles = places_disponibles(db, places, creneau)
+    return [
+        PlaceWithDisponibilite(
+            **PlaceOut.model_validate(place).model_dump(),
+            disponible=place.id_place in disponibles,
+        )
+        for place in places
+    ]
 
 
 @router.get("/{id_place}", response_model=PlaceOut)
