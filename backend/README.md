@@ -24,9 +24,11 @@ POSTGRES_HOST=localhost POSTGRES_PORT=5433 uvicorn app.main:app --reload
 
 ## Jeu de données de démonstration
 
-Réinitialise les données métier et recrée un jeu de données réaliste
-(5 comptes sur les 4 rôles, 2 parkings, 4 zones dont une bloquée,
-11 places, règles d'accès, réservations confirmées/annulées).
+Réinitialise les données métier et recrée un jeu de données réaliste :
+5 comptes fictifs sur les 4 rôles et les parkings réels du campus de
+Marne-la-Vallée (6 parkings, 11 zones dont une bloquée, 1 053 places,
+d'après la page « Accès aux bâtiments » de l'université), règles
+d'accès et réservations confirmées/annulées.
 
 ```bash
 docker compose exec backend python -m app.seed.seed_data
