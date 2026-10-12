@@ -1,28 +1,13 @@
-from datetime import datetime, timezone
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_user_roles
 from app.db.session import get_db
-from app.models import Place, Reservation, Utilisateur, Zone
+from app.models import Reservation, Utilisateur
 from app.schemas.reservation import ReservationCancel, ReservationCreate, ReservationOut
+from app.services import reservations as reservation_service
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
-
-
-def _has_overlap(db: Session, id_place: int, date_debut: datetime, date_fin: datetime) -> bool:
-    return (
-        db.query(Reservation)
-        .filter(
-            Reservation.id_place == id_place,
-            Reservation.statut_reservation == "confirmee",
-            Reservation.date_debut < date_fin,
-            Reservation.date_fin > date_debut,
-        )
-        .first()
-        is not None
-    )
 
 
 @router.get("", response_model=list[ReservationOut])
@@ -43,12 +28,7 @@ def get_reservation(
     db: Session = Depends(get_db),
     user: Utilisateur = Depends(get_current_user),
 ) -> Reservation:
-    reservation = db.get(Reservation, id_reservation)
-    if reservation is None or reservation.id_utilisateur != user.id_utilisateur:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Réservation introuvable"
-        )
-    return reservation
+    return reservation_service.get_user_reservation(db, user, id_reservation)
 
 
 @router.post("", response_model=ReservationOut, status_code=status.HTTP_201_CREATED)
@@ -57,34 +37,14 @@ def create_reservation(
     db: Session = Depends(get_db),
     user: Utilisateur = Depends(get_current_user),
 ) -> Reservation:
-    place = db.get(Place, payload.id_place)
-    if place is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Place inconnue")
-    if place.etat_place == "hors_service":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Place hors service")
-
-    zone = db.get(Zone, place.id_zone)
-    if zone is None or not zone.zone_active:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Zone bloquée ou inconnue")
-
-    if _has_overlap(db, payload.id_place, payload.date_debut, payload.date_fin):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Place déjà réservée sur ce créneau"
-        )
-
-    now = datetime.now(timezone.utc)
-    reservation = Reservation(
-        id_utilisateur=user.id_utilisateur,
-        id_place=payload.id_place,
-        date_debut=payload.date_debut,
-        date_fin=payload.date_fin,
-        statut_reservation="confirmee",
-        date_creation_resa=now,
+    return reservation_service.create_reservation(
+        db,
+        user,
+        get_user_roles(user, db),
+        payload.id_place,
+        payload.date_debut,
+        payload.date_fin,
     )
-    db.add(reservation)
-    db.commit()
-    db.refresh(reservation)
-    return reservation
 
 
 @router.patch("/{id_reservation}/annuler", response_model=ReservationOut)
@@ -94,19 +54,6 @@ def cancel_reservation(
     db: Session = Depends(get_db),
     user: Utilisateur = Depends(get_current_user),
 ) -> Reservation:
-    reservation = db.get(Reservation, id_reservation)
-    if reservation is None or reservation.id_utilisateur != user.id_utilisateur:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Réservation introuvable"
-        )
-    if reservation.statut_reservation == "annulee":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Réservation déjà annulée"
-        )
-
-    reservation.statut_reservation = "annulee"
-    reservation.date_annulation = datetime.now(timezone.utc)
-    reservation.motif_annulation = payload.motif_annulation
-    db.commit()
-    db.refresh(reservation)
-    return reservation
+    return reservation_service.cancel_reservation(
+        db, user, id_reservation, payload.motif_annulation
+    )

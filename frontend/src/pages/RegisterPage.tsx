@@ -9,7 +9,6 @@ const ROLES: { value: Role; label: string }[] = [
   { value: "etudiant", label: "Étudiant" },
   { value: "personnel", label: "Personnel" },
   { value: "visiteur", label: "Visiteur" },
-  { value: "administrateur", label: "Administrateur" },
 ];
 
 export default function RegisterPage() {

@@ -12,6 +12,9 @@ from app.schemas.auth import Token, UserOut, UserRegister
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Un compte administrateur ne peut pas être créé par auto-inscription.
+SELF_REGISTER_ROLES = {"etudiant", "personnel", "visiteur"}
+
 
 def _to_user_out(user: Utilisateur, db: Session) -> UserOut:
     return UserOut(
@@ -33,6 +36,10 @@ def register(payload: UserRegister, db: Session = Depends(get_db)) -> UserOut:
     role = db.get(Role, payload.role)
     if role is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rôle inconnu")
+    if role.code_role not in SELF_REGISTER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Ce rôle ne peut pas être choisi à l'inscription"
+        )
 
     now = datetime.now(timezone.utc)
     user = Utilisateur(

@@ -177,7 +177,7 @@ def seed() -> None:
         )
         regle_personnel = RegleAcces(
             id_zone=zone_standard.id_zone,
-            libelle_regle="Priorité personnel",
+            libelle_regle="Accès étudiants et personnels",
             niveau_priorite=2,
             date_debut_validite=today,
             regle_active=True,
@@ -195,6 +195,7 @@ def seed() -> None:
             [
                 CibleRole(id_regle=regle_pmr.id_regle, code_role="etudiant"),
                 CibleRole(id_regle=regle_pmr.id_regle, code_role="personnel"),
+                CibleRole(id_regle=regle_personnel.id_regle, code_role="etudiant"),
                 CibleRole(id_regle=regle_personnel.id_regle, code_role="personnel"),
                 CibleRole(id_regle=regle_visiteurs.id_regle, code_role="visiteur"),
             ]

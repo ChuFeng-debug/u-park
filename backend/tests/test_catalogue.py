@@ -23,11 +23,6 @@ def _register_and_login(client, role: str) -> str:
     return login.json()["access_token"]
 
 
-def _admin_headers(client) -> dict[str, str]:
-    token = _register_and_login(client, "administrateur")
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _create_parking(client, headers) -> dict:
     response = client.post(
         "/parkings",
@@ -59,8 +54,8 @@ def test_create_parking_requires_admin(client):
     assert response.status_code == 403
 
 
-def test_create_zone_and_disponibilite(client):
-    headers = _admin_headers(client)
+def test_create_zone_and_disponibilite(client, make_user):
+    headers = make_user("administrateur")
     parking = _create_parking(client, headers)
 
     zone_response = client.post(
@@ -100,8 +95,8 @@ def test_create_zone_and_disponibilite(client):
     assert zone_detail["nombre_places_libres"] == 1
 
 
-def test_blocked_zone_has_zero_disponibilite(client):
-    headers = _admin_headers(client)
+def test_blocked_zone_has_zero_disponibilite(client, make_user):
+    headers = make_user("administrateur")
     parking = _create_parking(client, headers)
     zone = client.post(
         "/zones",

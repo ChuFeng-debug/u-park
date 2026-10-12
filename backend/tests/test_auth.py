@@ -69,3 +69,8 @@ def test_login_wrong_password(client):
 def test_me_without_token(client):
     response = client.get("/auth/me")
     assert response.status_code == 401
+
+
+def test_register_as_admin_forbidden(client):
+    response = _register(client, role="administrateur")
+    assert response.status_code == 403
