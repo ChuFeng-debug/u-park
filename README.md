@@ -23,16 +23,24 @@ u-park/
 
 ## Démarrage rapide
 
-1. Copier le fichier d'environnement :
+1. Copier les fichiers d'environnement :
    ```bash
    cp .env.example .env
+   cp frontend/.env.example frontend/.env
    ```
-2. Lancer la base de données :
+2. Lancer tout le stack :
    ```bash
-   docker compose up -d db
+   docker compose up -d --build
+   ```
+3. Charger un jeu de données de démonstration :
+   ```bash
+   docker compose exec backend python -m app.seed.seed_data
    ```
 
-Le service `backend` (API) et `frontend` seront ajoutés à `docker-compose.yml` au fur et à mesure de leur développement.
+L'application est alors disponible sur http://localhost:5173 (front),
+l'API sur http://localhost:8000 (`/docs` pour Swagger). Comptes de
+démo : voir la sortie du script de seed (mot de passe commun
+`motdepasse123`).
 
 ## Documentation
 
