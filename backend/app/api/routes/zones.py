@@ -1,51 +1,65 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models import Parking, Place, Zone
+from app.models import Parking, Zone
 from app.schemas.zone import ZoneCreate, ZoneOut, ZoneUpdate, ZoneWithDisponibilite
+from app.services.disponibilites import Creneau, compter_places
+from app.services.reservations import roles_autorises
 
 router = APIRouter(prefix="/zones", tags=["zones"])
 
 
-def _with_disponibilite(zone: Zone, db: Session) -> ZoneWithDisponibilite:
-    total = db.query(func.count(Place.id_place)).filter(Place.id_zone == zone.id_zone).scalar() or 0
-    # Une zone bloquée (zone_active=False) n'offre plus aucune place, même si
-    # certaines places sont encore marquées "libre" individuellement.
-    libres = 0
-    if zone.zone_active:
-        libres = (
-            db.query(func.count(Place.id_place))
-            .filter(Place.id_zone == zone.id_zone, Place.etat_place == "libre")
-            .scalar()
-            or 0
+def _sorted_or_none(roles: set[str] | None) -> list[str] | None:
+    return None if roles is None else sorted(roles)
+
+
+def _with_disponibilite(
+    zones: list[Zone], db: Session, creneau: Creneau
+) -> list[ZoneWithDisponibilite]:
+    # Une zone bloquée n'offre aucune place, même si certaines sont "libres".
+    comptes = compter_places(db, [zone.id_zone for zone in zones], creneau)
+    return [
+        ZoneWithDisponibilite(
+            **ZoneOut.model_validate(zone).model_dump(),
+            nombre_places=comptes[zone.id_zone][0],
+            nombre_places_libres=comptes[zone.id_zone][1],
+            roles_autorises=_sorted_or_none(roles_autorises(db, zone.id_zone, creneau.jour)),
         )
-    return ZoneWithDisponibilite(
-        **ZoneOut.model_validate(zone).model_dump(),
-        nombre_places=total,
-        nombre_places_libres=libres,
-    )
+        for zone in zones
+    ]
 
 
 @router.get("", response_model=list[ZoneWithDisponibilite])
 def list_zones(
     id_parking: int | None = Query(default=None),
+    debut: datetime | None = Query(default=None, description="Début du créneau (ISO 8601)"),
+    fin: datetime | None = Query(default=None, description="Fin du créneau (ISO 8601)"),
     db: Session = Depends(get_db),
 ) -> list[ZoneWithDisponibilite]:
+    """Zones avec leurs places libres sur le créneau [debut, fin[ (par défaut : maintenant)."""
+    creneau = Creneau(debut, fin)
     query = db.query(Zone)
     if id_parking is not None:
         query = query.filter(Zone.id_parking == id_parking)
-    return [_with_disponibilite(zone, db) for zone in query.order_by(Zone.nom_zone).all()]
+    return _with_disponibilite(query.order_by(Zone.nom_zone).all(), db, creneau)
 
 
 @router.get("/{id_zone}", response_model=ZoneWithDisponibilite)
-def get_zone(id_zone: int, db: Session = Depends(get_db)) -> ZoneWithDisponibilite:
+def get_zone(
+    id_zone: int,
+    debut: datetime | None = Query(default=None),
+    fin: datetime | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> ZoneWithDisponibilite:
+    creneau = Creneau(debut, fin)
     zone = db.get(Zone, id_zone)
     if zone is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone introuvable")
-    return _with_disponibilite(zone, db)
+    return _with_disponibilite([zone], db, creneau)[0]
 
 
 @router.post("", response_model=ZoneOut, status_code=status.HTTP_201_CREATED)

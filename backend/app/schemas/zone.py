@@ -33,3 +33,5 @@ class ZoneOut(ZoneBase):
 class ZoneWithDisponibilite(ZoneOut):
     nombre_places: int
     nombre_places_libres: int
+    # Rôles autorisés par les règles d'accès actives ; None = zone ouverte à tous.
+    roles_autorises: list[str] | None

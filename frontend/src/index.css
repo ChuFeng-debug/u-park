@@ -465,6 +465,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* Certaines zones comptent plus de 200 places : défilement interne. */
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .place-list li {
@@ -479,22 +482,37 @@ button:disabled {
   font-size: 0.85rem;
 }
 
-.reservation-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+.creneau-bar {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  width: 100%;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 16px 20px;
+  margin-bottom: 22px;
 }
 
-.reservation-form label {
+.creneau-bar p {
+  margin: 8px 0 0;
+}
+
+.creneau-picker {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.creneau-picker label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.place-filter {
+  display: flex;
+  margin: 10px 0 0;
   font-size: 0.8rem;
   color: var(--text-muted);
 }

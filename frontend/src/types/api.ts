@@ -41,6 +41,8 @@ export interface ZoneWithDisponibilite {
   zone_active: boolean;
   nombre_places: number;
   nombre_places_libres: number;
+  /** Rôles autorisés par les règles d'accès ; null = zone ouverte à tous. */
+  roles_autorises: string[] | null;
 }
 
 export type TypePlace = "standard" | "pmr" | "electrique" | "moto";
@@ -52,6 +54,16 @@ export interface PlaceOut {
   numero_place: string;
   type_place: TypePlace;
   etat_place: EtatPlace;
+}
+
+export interface PlaceWithDisponibilite extends PlaceOut {
+  disponible: boolean;
+}
+
+/** Créneau au format ISO 8601, envoyé tel quel à l'API. */
+export interface Creneau {
+  debut: string;
+  fin: string;
 }
 
 export type StatutReservation = "confirmee" | "annulee";

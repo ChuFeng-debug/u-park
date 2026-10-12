@@ -27,3 +27,7 @@ class PlaceOut(PlaceBase):
     id_zone: int
 
     model_config = {"from_attributes": True}
+
+
+class PlaceWithDisponibilite(PlaceOut):
+    disponible: bool
