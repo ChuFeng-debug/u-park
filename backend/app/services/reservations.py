@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models import CibleRole, Place, RegleAcces, Reservation, Utilisateur, Zone
-from app.services.disponibilites import Creneau, zones_indisponibles
+from app.services.disponibilites import Creneau, to_utc_naive, zones_indisponibles
 from app.services.exceptions import (
     AccessDeniedError,
     ConflictError,
@@ -18,13 +18,7 @@ from app.services.exceptions import (
 )
 
 ADMIN_ROLE = "administrateur"
-
-
-def _to_utc_naive(value: datetime) -> datetime:
-    """Les colonnes TIMESTAMP sont sans fuseau : on y stocke de l'UTC."""
-    if value.tzinfo is None:
-        return value
-    return value.astimezone(timezone.utc).replace(tzinfo=None)
+VISITEUR_ROLE = "visiteur"
 
 
 def _check_slot_in_opening_hours(zone: Zone, date_debut: datetime, date_fin: datetime) -> date:
@@ -114,9 +108,20 @@ def create_reservation(
     id_place: int,
     date_debut: datetime,
     date_fin: datetime,
+    *,
+    via_demande: bool = False,
+    commit: bool = True,
 ) -> Reservation:
-    date_debut = _to_utc_naive(date_debut)
-    date_fin = _to_utc_naive(date_fin)
+    """Crée une réservation confirmée après contrôle des règles de gestion.
+
+    `via_demande` : réservation créée par la validation d'une demande visiteur.
+    `commit=False` : laisse l'appelant valider la transaction.
+    """
+    if user_roles == {VISITEUR_ROLE} and not via_demande:
+        raise AccessDeniedError("Les visiteurs doivent passer par une demande de place")
+
+    date_debut = to_utc_naive(date_debut)
+    date_fin = to_utc_naive(date_fin)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     if date_debut < now:
@@ -150,12 +155,14 @@ def create_reservation(
     )
     db.add(reservation)
     try:
-        db.commit()
+        db.flush()
     except IntegrityError:
         # Deux demandes simultanées : la contrainte d'exclusion en base tranche.
         db.rollback()
         raise ConflictError("Place déjà réservée sur ce créneau")
-    db.refresh(reservation)
+    if commit:
+        db.commit()
+        db.refresh(reservation)
     return reservation
 
 
@@ -170,6 +177,17 @@ def cancel_reservation(
     db: Session, user: Utilisateur, id_reservation: int, motif: str | None
 ) -> Reservation:
     reservation = get_user_reservation(db, user, id_reservation)
+    return _cancel(db, reservation, motif)
+
+
+def admin_cancel_reservation(db: Session, id_reservation: int, motif: str | None) -> Reservation:
+    reservation = db.get(Reservation, id_reservation)
+    if reservation is None:
+        raise NotFoundError("Réservation introuvable")
+    return _cancel(db, reservation, motif)
+
+
+def _cancel(db: Session, reservation: Reservation, motif: str | None) -> Reservation:
     if reservation.statut_reservation == "annulee":
         raise ConflictError("Réservation déjà annulée")
 
@@ -179,3 +197,27 @@ def cancel_reservation(
     db.commit()
     db.refresh(reservation)
     return reservation
+
+
+def cancel_reservations_in_zone(
+    db: Session, id_zone: int, date_debut: datetime, date_fin: datetime, motif: str
+) -> int:
+    """Annule (sans valider la transaction) les réservations confirmées de la
+    zone qui chevauchent la période. Renvoie le nombre d'annulations."""
+    reservations = (
+        db.query(Reservation)
+        .join(Place, Place.id_place == Reservation.id_place)
+        .filter(
+            Place.id_zone == id_zone,
+            Reservation.statut_reservation == "confirmee",
+            Reservation.date_debut < date_fin,
+            Reservation.date_fin > date_debut,
+        )
+        .all()
+    )
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    for reservation in reservations:
+        reservation.statut_reservation = "annulee"
+        reservation.date_annulation = now
+        reservation.motif_annulation = motif
+    return len(reservations)

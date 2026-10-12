@@ -19,6 +19,8 @@ from app.db.session import SessionLocal
 from app.models import (
     AttributionRole,
     CibleRole,
+    DemandeVisiteur,
+    Incident,
     Parking,
     Place,
     RegleAcces,
@@ -268,6 +270,27 @@ def seed() -> None:
                     motif_annulation="Changement de programme",
                 ),
             ]
+        )
+
+        db.add(
+            DemandeVisiteur(
+                id_demandeur=visiteur.id_utilisateur,
+                date_demande=now,
+                date_visite_souhaitee=_utc(demain, 14),
+                date_fin_visite_souhaitee=_utc(demain, 17),
+                motif_demande="Intervention en jury de soutenance",
+                statut_demande="en_attente",
+            )
+        )
+        db.add(
+            Incident(
+                id_zone=zones["lavoisier"].id_zone,
+                id_utilisateur_signalement=etudiant.id_utilisateur,
+                description_incident="Éclairage en panne au niveau -1, côté rampe d'accès",
+                priorite_incident="moyenne",
+                statut_incident="ouvert",
+                date_signalement=now,
+            )
         )
 
         db.commit()

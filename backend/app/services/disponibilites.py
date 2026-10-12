@@ -19,8 +19,8 @@ class Creneau:
             raise InvalidRequestError("Indiquer à la fois debut et fin, ou aucun des deux")
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         self.maintenant = debut is None
-        self.debut = _to_utc_naive(debut) if debut else now
-        self.fin = _to_utc_naive(fin) if fin else now
+        self.debut = to_utc_naive(debut) if debut else now
+        self.fin = to_utc_naive(fin) if fin else now
         if not self.maintenant and self.fin <= self.debut:
             raise InvalidRequestError("fin doit être postérieure à debut")
 
@@ -31,7 +31,8 @@ class Creneau:
         return local.date()
 
 
-def _to_utc_naive(value: datetime) -> datetime:
+def to_utc_naive(value: datetime) -> datetime:
+    """Les colonnes TIMESTAMP sont sans fuseau : on y stocke de l'UTC."""
     if value.tzinfo is None:
         return value
     return value.astimezone(timezone.utc).replace(tzinfo=None)

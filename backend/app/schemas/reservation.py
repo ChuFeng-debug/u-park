@@ -34,3 +34,10 @@ class ReservationOut(BaseModel):
     motif_annulation: str | None
 
     model_config = {"from_attributes": True}
+
+
+class ReservationAdminOut(ReservationOut):
+    numero_place: str
+    id_zone: int
+    nom_utilisateur: str
+    prenom_utilisateur: str

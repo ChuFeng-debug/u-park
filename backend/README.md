@@ -60,6 +60,8 @@ app/
 ├── db/              # session SQLAlchemy, base déclarative
 ├── models/          # modèles SQLAlchemy (voir docs/schema.sql)
 ├── schemas/          # schémas Pydantic
-├── api/routes/       # routes de l'API (auth, parkings, zones, places, reservations)
+├── services/         # règles de gestion (réservations, disponibilités, back-office)
+├── api/routes/       # routes de l'API (auth, catalogue, réservations, demandes
+│                     # visiteurs, incidents, blocages, règles d'accès, admin)
 └── seed/             # jeu de données de démonstration
 ```

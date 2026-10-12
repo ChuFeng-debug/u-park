@@ -21,6 +21,7 @@ class DemandeVisiteur(Base):
     )
     date_demande: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     date_visite_souhaitee: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    date_fin_visite_souhaitee: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     motif_demande: Mapped[str] = mapped_column(String(255), nullable=False)
     statut_demande: Mapped[str] = mapped_column(String(20), nullable=False)
     date_traitement: Mapped[datetime | None] = mapped_column(DateTime)

@@ -71,8 +71,13 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 /** Miroir des règles appliquées par l'API, pour ne proposer que ce qui est réservable. */
+function isVisitorOnly(user: UserOut | null): boolean {
+  return !!user && user.roles.every((role) => role === "visiteur");
+}
+
 function canReserveInZone(user: UserOut | null, zone: ZoneWithDisponibilite): boolean {
-  if (!user) return false;
+  // Les visiteurs passent par une demande validée par un administrateur.
+  if (!user || isVisitorOnly(user)) return false;
   if (user.roles.includes("administrateur") || zone.roles_autorises === null) return true;
   return user.roles.some((role) => zone.roles_autorises?.includes(role));
 }
@@ -306,6 +311,12 @@ export default function CataloguePage() {
           <p className="form-error">L'heure de fin doit être après l'heure de début.</p>
         )}
         {!user && <p className="muted">Connectez-vous pour réserver une place.</p>}
+        {isVisitorOnly(user) && (
+          <p className="muted">
+            En tant que visiteur, votre place est attribuée après validation d'une demande par
+            l'administration.
+          </p>
+        )}
       </section>
       {error && <p className="form-error">{error}</p>}
       {parkings.length === 0 && !error && <p>Aucun parking pour le moment.</p>}
