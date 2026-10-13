@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
-StatutReservation = Literal["confirmee", "annulee"]
+StatutReservation = Literal["confirmee", "annulee", "no_show"]
 
 
 class ReservationCreate(BaseModel):
@@ -32,6 +32,7 @@ class ReservationOut(BaseModel):
     date_creation_resa: datetime
     date_annulation: datetime | None
     motif_annulation: str | None
+    date_passage: datetime | None
 
     model_config = {"from_attributes": True}
 

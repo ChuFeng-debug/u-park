@@ -66,7 +66,7 @@ export interface Creneau {
   fin: string;
 }
 
-export type StatutReservation = "confirmee" | "annulee";
+export type StatutReservation = "confirmee" | "annulee" | "no_show";
 
 export interface ReservationOut {
   id_reservation: number;
@@ -78,6 +78,7 @@ export interface ReservationOut {
   date_creation_resa: string;
   date_annulation: string | null;
   motif_annulation: string | null;
+  date_passage: string | null;
 }
 
 export interface ReservationCreatePayload {

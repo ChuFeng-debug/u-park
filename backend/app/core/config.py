@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # Fuseau dans lequel sont exprimés les horaires d'ouverture des zones.
     campus_timezone: str = "Europe/Paris"
 
+    # Une réservation sans passage à l'entrée devient "no_show" passé ce délai.
+    no_show_delai_minutes: int = 30
+    # Le passage est accepté à partir de ce délai avant le début du créneau.
+    passage_avance_minutes: int = 15
+
     cors_origins: list[str] = ["http://localhost:5173"]
 
     @property

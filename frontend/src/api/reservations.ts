@@ -23,3 +23,8 @@ export async function cancelReservation(
   );
   return data;
 }
+
+export async function enregistrerPassage(idReservation: number): Promise<ReservationOut> {
+  const { data } = await http.post<ReservationOut>(`/reservations/${idReservation}/passage`);
+  return data;
+}

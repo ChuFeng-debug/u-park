@@ -74,6 +74,7 @@ CREATE TABLE reservation (
     date_creation_resa  TIMESTAMP NOT NULL,
     date_annulation     TIMESTAMP,
     motif_annulation    VARCHAR(255),
+    date_passage        TIMESTAMP,   -- scan simulé à l'entrée ; sinon no_show
     CONSTRAINT pk_reservation PRIMARY KEY (id_reservation),
     CONSTRAINT fk_resa_utilisateur FOREIGN KEY (id_utilisateur) REFERENCES utilisateur (id_utilisateur),
     CONSTRAINT fk_resa_place FOREIGN KEY (id_place) REFERENCES place (id_place),

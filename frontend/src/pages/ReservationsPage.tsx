@@ -1,10 +1,23 @@
 import { useEffect, useState } from "react";
-import { cancelReservation, listMyReservations } from "../api/reservations";
+import { cancelReservation, enregistrerPassage, listMyReservations } from "../api/reservations";
 import { extractErrorMessage } from "../api/http";
 import type { ReservationOut } from "../types/api";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("fr-FR");
+}
+
+// Doit rester aligné sur PASSAGE_AVANCE_MINUTES côté API.
+const PASSAGE_AVANCE_MS = 15 * 60 * 1000;
+
+function passagePossible(reservation: ReservationOut): boolean {
+  const now = Date.now();
+  return (
+    reservation.statut_reservation === "confirmee" &&
+    reservation.date_passage === null &&
+    now >= new Date(reservation.date_debut).getTime() - PASSAGE_AVANCE_MS &&
+    now < new Date(reservation.date_fin).getTime()
+  );
 }
 
 const STATUT_LABEL: Record<string, string> = {
@@ -27,6 +40,16 @@ export default function ReservationsPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  async function handlePassage(id: number) {
+    setError(null);
+    try {
+      await enregistrerPassage(id);
+      await load();
+    } catch (err) {
+      setError(extractErrorMessage(err, "Passage impossible"));
+    }
+  }
 
   async function handleCancel(id: number) {
     setError(null);
@@ -67,7 +90,15 @@ export default function ReservationsPage() {
                 </span>
               </td>
               <td>
-                {reservation.statut_reservation === "confirmee" && (
+                {passagePossible(reservation) && (
+                  <button type="button" onClick={() => handlePassage(reservation.id_reservation)}>
+                    Simuler mon passage
+                  </button>
+                )}
+                {reservation.date_passage && (
+                  <span className="muted">Arrivé à {formatDate(reservation.date_passage)}</span>
+                )}
+                {reservation.statut_reservation === "confirmee" && !reservation.date_passage && (
                   <button type="button" onClick={() => handleCancel(reservation.id_reservation)}>
                     Annuler
                   </button>

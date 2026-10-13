@@ -17,7 +17,7 @@ router = APIRouter(prefix="/admin/reservations", tags=["administration"])
 @router.get("", response_model=list[ReservationAdminOut])
 def list_reservations(
     id_zone: int | None = Query(default=None),
-    statut: Literal["confirmee", "annulee"] | None = Query(default=None),
+    statut: Literal["confirmee", "annulee", "no_show"] | None = Query(default=None),
     du: datetime | None = Query(default=None, description="Réservations finissant après"),
     au: datetime | None = Query(default=None, description="Réservations commençant avant"),
     limit: int = Query(default=200, ge=1, le=1000),
@@ -48,6 +48,15 @@ def list_reservations(
         )
         for reservation, place, user in rows
     ]
+
+
+@router.post("/no-shows")
+def marquer_no_shows(
+    db: Session = Depends(get_db),
+    _admin: Utilisateur = Depends(require_roles("administrateur")),
+) -> dict[str, int]:
+    """Marque "no_show" les réservations non honorées après le délai de grâce."""
+    return {"reservations_marquees": reservation_service.marquer_no_shows(db)}
 
 
 @router.patch("/{id_reservation}/annuler", response_model=ReservationOut)

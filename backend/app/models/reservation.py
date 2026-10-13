@@ -20,3 +20,5 @@ class Reservation(Base):
     date_creation_resa: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     date_annulation: Mapped[datetime | None] = mapped_column(DateTime)
     motif_annulation: Mapped[str | None] = mapped_column(String(255))
+    # Passage à l'entrée (scan QR simulé) ; absent après le délai de grâce = no-show.
+    date_passage: Mapped[datetime | None] = mapped_column(DateTime)

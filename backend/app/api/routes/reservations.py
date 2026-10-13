@@ -57,3 +57,13 @@ def cancel_reservation(
     return reservation_service.cancel_reservation(
         db, user, id_reservation, payload.motif_annulation
     )
+
+
+@router.post("/{id_reservation}/passage", response_model=ReservationOut)
+def enregistrer_passage(
+    id_reservation: int,
+    db: Session = Depends(get_db),
+    user: Utilisateur = Depends(get_current_user),
+) -> Reservation:
+    """Simule le scan du QR code de la réservation à l'entrée du parking."""
+    return reservation_service.enregistrer_passage(db, user, id_reservation)

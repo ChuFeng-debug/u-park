@@ -1,6 +1,6 @@
 """Règles de gestion des réservations."""
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import or_
@@ -190,6 +190,10 @@ def admin_cancel_reservation(db: Session, id_reservation: int, motif: str | None
 def _cancel(db: Session, reservation: Reservation, motif: str | None) -> Reservation:
     if reservation.statut_reservation == "annulee":
         raise ConflictError("Réservation déjà annulée")
+    if reservation.statut_reservation == "no_show":
+        raise ConflictError("Réservation non honorée, elle ne peut plus être annulée")
+    if reservation.date_passage is not None:
+        raise ConflictError("Véhicule déjà entré, la réservation ne peut plus être annulée")
 
     reservation.statut_reservation = "annulee"
     reservation.date_annulation = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -221,3 +225,41 @@ def cancel_reservations_in_zone(
         reservation.date_annulation = now
         reservation.motif_annulation = motif
     return len(reservations)
+
+
+def enregistrer_passage(db: Session, user: Utilisateur, id_reservation: int) -> Reservation:
+    """Simule le scan du QR code à l'entrée du parking."""
+    reservation = get_user_reservation(db, user, id_reservation)
+    if reservation.statut_reservation != "confirmee":
+        raise ConflictError("Seule une réservation confirmée peut être présentée à l'entrée")
+    if reservation.date_passage is not None:
+        raise ConflictError("Passage déjà enregistré")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    ouverture = reservation.date_debut - timedelta(minutes=settings.passage_avance_minutes)
+    if not ouverture <= now < reservation.date_fin:
+        raise InvalidRequestError(
+            f"Le passage est possible de {settings.passage_avance_minutes} min avant "
+            "le début jusqu'à la fin du créneau"
+        )
+    reservation.date_passage = now
+    db.commit()
+    db.refresh(reservation)
+    return reservation
+
+
+def marquer_no_shows(db: Session, now: datetime | None = None) -> int:
+    """Passe en "no_show" les réservations confirmées sans passage une fois le
+    délai de grâce écoulé. Renvoie le nombre de réservations marquées."""
+    now = now or datetime.now(timezone.utc).replace(tzinfo=None)
+    limite = now - timedelta(minutes=settings.no_show_delai_minutes)
+    marquees = (
+        db.query(Reservation)
+        .filter(
+            Reservation.statut_reservation == "confirmee",
+            Reservation.date_passage.is_(None),
+            Reservation.date_debut < limite,
+        )
+        .update({Reservation.statut_reservation: "no_show"}, synchronize_session=False)
+    )
+    db.commit()
+    return marquees

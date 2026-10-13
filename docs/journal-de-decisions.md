@@ -34,3 +34,10 @@
 - **Règles d'accès** gérées par l'administrateur (`/regles-acces`) avec la liste des rôles ciblés.
 - **Incidents** : tout utilisateur connecté signale un incident sur une zone ; l'administrateur change sa priorité et son statut (`ouvert`, `en_cours`, `resolu`).
 - **Vue administrateur des réservations** (`/admin/reservations`) avec filtres et annulation de n'importe quelle réservation. Seuls le nom et le prénom de l'utilisateur sont exposés (minimisation RGPD).
+
+## 2026-10-13 (tableau de bord)
+
+- **Passage et no-show** : nouvelle colonne `reservation.date_passage`, renseignée par la simulation du scan à l'entrée (`POST /reservations/{id}/passage`, possible 15 min avant le début et jusqu'à la fin). Une réservation confirmée sans passage 30 min après son début devient `no_show` (`POST /admin/reservations/no-shows`, appliqué aussi à chaque calcul de statistiques). Une réservation no-show libère la place ; une réservation honorée ou no-show ne peut plus être annulée.
+- **Taux d'occupation** = heures réservées et honorées / (places en service × amplitude d'ouverture × jours). Les annulations et no-shows ne consomment pas de capacité ; les zones désactivées sont exclues. Les jours sont comptés en heure de Paris, selon le début de la réservation.
+- **Statistiques** (`GET /admin/statistiques?du&au&id_parking`) : totaux, détail par jour et par zone (réservations, honorées, annulations, no-shows et leurs taux). Période par défaut : les 30 derniers jours.
+- **Simulateur de fréquentation** déterministe (`app/seed/simulateur.py`), lancé par le seed : comptes fictifs `simu.*@campus.fr`, profil de fréquentation selon le jour et le public de la zone, environ 8 % d'annulations et 5 % de no-shows. Les règles d'accès du seed s'appliquent depuis la rentrée pour couvrir l'historique.

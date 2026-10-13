@@ -11,6 +11,7 @@ from app.api.routes.parkings import router as parkings_router
 from app.api.routes.places import router as places_router
 from app.api.routes.regles_acces import router as regles_acces_router
 from app.api.routes.reservations import router as reservations_router
+from app.api.routes.statistiques import router as statistiques_router
 from app.api.routes.zones import router as zones_router
 from app.core.config import settings
 from app.services.exceptions import ServiceError
@@ -41,6 +42,7 @@ app.include_router(incidents_router)
 app.include_router(blocages_router)
 app.include_router(regles_acces_router)
 app.include_router(admin_reservations_router)
+app.include_router(statistiques_router)
 
 
 @app.get("/health")
