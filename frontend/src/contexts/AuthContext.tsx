@@ -7,9 +7,11 @@ import type { RegisterPayload, UserOut } from "../types/api";
 interface AuthContextValue {
   user: UserOut | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<UserOut>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => void;
+  /** Remplace l'utilisateur courant (après une modification de profil). */
+  setCurrentUser: (user: UserOut) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -44,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStoredToken(token.access_token);
     const currentUser = await authApi.me();
     setUser(currentUser);
+    return currentUser;
   }, []);
 
   const register = useCallback(async (payload: RegisterPayload) => {
@@ -57,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, setCurrentUser: setUser }}>
       {children}
     </AuthContext.Provider>
   );

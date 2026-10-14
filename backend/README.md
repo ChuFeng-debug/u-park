@@ -28,7 +28,14 @@ Réinitialise les données métier et recrée un jeu de données réaliste :
 5 comptes fictifs sur les 4 rôles et les parkings réels du campus de
 Marne-la-Vallée (6 parkings, 11 zones dont une bloquée, 1 053 places,
 d'après la page « Accès aux bâtiments » de l'université), règles
-d'accès et réservations confirmées/annulées.
+d'accès, réservations de démo, une demande visiteur et un incident.
+
+Le script lance aussi le **simulateur de fréquentation**
+(`app/seed/simulateur.py`) : environ 55 000 réservations fictives sur
+60 jours passés et 7 jours à venir, avec annulations et no-shows, pour
+alimenter le tableau de bord (`GET /admin/statistiques`). Le générateur
+est déterministe. Compter une quinzaine de secondes ; ajouter
+`--sans-historique` pour ne charger que les données de démo.
 
 ```bash
 docker compose exec backend python -m app.seed.seed_data
@@ -60,6 +67,8 @@ app/
 ├── db/              # session SQLAlchemy, base déclarative
 ├── models/          # modèles SQLAlchemy (voir docs/schema.sql)
 ├── schemas/          # schémas Pydantic
-├── api/routes/       # routes de l'API (auth, parkings, zones, places, reservations)
+├── services/         # règles de gestion (réservations, disponibilités, back-office)
+├── api/routes/       # routes de l'API (auth, catalogue, réservations, demandes
+│                     # visiteurs, incidents, blocages, règles d'accès, admin)
 └── seed/             # jeu de données de démonstration
 ```

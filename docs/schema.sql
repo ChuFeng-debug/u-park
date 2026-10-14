@@ -74,9 +74,15 @@ CREATE TABLE reservation (
     date_creation_resa  TIMESTAMP NOT NULL,
     date_annulation     TIMESTAMP,
     motif_annulation    VARCHAR(255),
+    date_passage        TIMESTAMP,   -- scan simulé à l'entrée ; sinon no_show
     CONSTRAINT pk_reservation PRIMARY KEY (id_reservation),
     CONSTRAINT fk_resa_utilisateur FOREIGN KEY (id_utilisateur) REFERENCES utilisateur (id_utilisateur),
-    CONSTRAINT fk_resa_place FOREIGN KEY (id_place) REFERENCES place (id_place)
+    CONSTRAINT fk_resa_place FOREIGN KEY (id_place) REFERENCES place (id_place),
+    -- Pas deux réservations confirmées qui se chevauchent sur une même place
+    -- (nécessite l'extension btree_gist).
+    CONSTRAINT excl_reservation_place_creneau EXCLUDE USING gist (
+        id_place WITH =, tsrange(date_debut, date_fin) WITH &&
+    ) WHERE (statut_reservation = 'confirmee')
 );
 
 CREATE TABLE regle_acces (
@@ -123,6 +129,7 @@ CREATE TABLE demande_visiteur (
     id_reservation          INT,
     date_demande            TIMESTAMP    NOT NULL,
     date_visite_souhaitee   TIMESTAMP    NOT NULL,
+    date_fin_visite_souhaitee TIMESTAMP  NOT NULL,
     motif_demande           VARCHAR(255) NOT NULL,
     statut_demande          VARCHAR(20)  NOT NULL,
     date_traitement         TIMESTAMP,

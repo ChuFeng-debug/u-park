@@ -1,6 +1,6 @@
 """Génère un jeu de données de démonstration pour le POC U-Park.
 
-Usage : python -m app.seed.seed_data
+Usage : python -m app.seed.seed_data [--sans-historique]
 Réinitialise les tables métier (hors `role`, déjà peuplée par Alembic)
 et recrée un jeu de données cohérent pour une démonstration de bout en
 bout sur les profils étudiant, personnel, visiteur et administrateur.
@@ -19,6 +19,8 @@ from app.db.session import SessionLocal
 from app.models import (
     AttributionRole,
     CibleRole,
+    DemandeVisiteur,
+    Incident,
     Parking,
     Place,
     RegleAcces,
@@ -26,6 +28,7 @@ from app.models import (
     Utilisateur,
     Zone,
 )
+from app.seed.simulateur import simuler
 
 DEMO_PASSWORD = "motdepasse123"
 
@@ -134,7 +137,7 @@ CAMPUS = [
 ]
 
 
-def _create_campus(db: Session, today: date) -> dict[str, Zone]:
+def _create_campus(db: Session, debut_regles: date) -> dict[str, Zone]:
     zones: dict[str, Zone] = {}
     for site in CAMPUS:
         parking = Parking(
@@ -173,7 +176,7 @@ def _create_campus(db: Session, today: date) -> dict[str, Zone]:
                     id_zone=zone.id_zone,
                     libelle_regle=f"Réservé : {', '.join(roles)}",
                     niveau_priorite=1,
-                    date_debut_validite=today,
+                    date_debut_validite=debut_regles,
                     regle_active=True,
                 )
                 db.add(regle)
@@ -183,7 +186,7 @@ def _create_campus(db: Session, today: date) -> dict[str, Zone]:
     return zones
 
 
-def seed() -> None:
+def seed(historique: bool = True) -> None:
     db = SessionLocal()
     try:
         _reset(db)
@@ -211,7 +214,9 @@ def seed() -> None:
         db.flush()
 
         today = date.today()
-        zones = _create_campus(db, today)
+        # Règles d'accès en vigueur depuis la rentrée (couvre l'historique simulé).
+        rentree = date(today.year if today.month >= 9 else today.year - 1, 9, 1)
+        zones = _create_campus(db, min(rentree, today - timedelta(days=60)))
 
         # Une place libre d'une zone donnée (hors PMR sauf demande).
         def _place(zone_key: str, type_place: str = "standard") -> Place:
@@ -270,6 +275,34 @@ def seed() -> None:
             ]
         )
 
+        db.add(
+            DemandeVisiteur(
+                id_demandeur=visiteur.id_utilisateur,
+                date_demande=now,
+                date_visite_souhaitee=_utc(demain, 14),
+                date_fin_visite_souhaitee=_utc(demain, 17),
+                motif_demande="Intervention en jury de soutenance",
+                statut_demande="en_attente",
+            )
+        )
+        db.add(
+            Incident(
+                id_zone=zones["lavoisier"].id_zone,
+                id_utilisateur_signalement=etudiant.id_utilisateur,
+                description_incident="Éclairage en panne au niveau -1, côté rampe d'accès",
+                priorite_incident="moyenne",
+                statut_incident="ouvert",
+                date_signalement=now,
+            )
+        )
+
+        nb_simulees = 0
+        if historique:
+            db.flush()
+            # Les places des réservations de démo restent hors simulation.
+            places_demo = {id_place for (id_place,) in db.query(Reservation.id_place)}
+            nb_simulees = simuler(db, hash_password(DEMO_PASSWORD), places_exclues=places_demo)
+
         db.commit()
 
         print("Jeu de données de démonstration créé.")
@@ -279,9 +312,19 @@ def seed() -> None:
         print(f"  - personnel      : {personnel.email}")
         print(f"  - visiteur       : {visiteur.email}")
         print(f"  - administrateur : {admin.email}")
+        if historique:
+            print(f"Historique simulé : {nb_simulees} réservations (60 jours passés, 7 à venir).")
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    seed()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Jeu de données de démonstration U-Park")
+    parser.add_argument(
+        "--sans-historique",
+        action="store_true",
+        help="ne pas générer l'historique de fréquentation simulé",
+    )
+    seed(historique=not parser.parse_args().sans_historique)

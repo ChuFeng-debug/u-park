@@ -3,7 +3,9 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
-StatutReservation = Literal["confirmee", "annulee"]
+from app.schemas.types import UtcDatetime
+
+StatutReservation = Literal["confirmee", "annulee", "no_show"]
 
 
 class ReservationCreate(BaseModel):
@@ -26,11 +28,22 @@ class ReservationOut(BaseModel):
     id_reservation: int
     id_utilisateur: int
     id_place: int
-    date_debut: datetime
-    date_fin: datetime
+    date_debut: UtcDatetime
+    date_fin: UtcDatetime
     statut_reservation: StatutReservation
-    date_creation_resa: datetime
-    date_annulation: datetime | None
+    date_creation_resa: UtcDatetime
+    date_annulation: UtcDatetime | None
     motif_annulation: str | None
+    date_passage: UtcDatetime | None
 
     model_config = {"from_attributes": True}
+
+
+class ReservationDetailOut(ReservationOut):
+    numero_place: str
+    id_zone: int
+
+
+class ReservationAdminOut(ReservationDetailOut):
+    nom_utilisateur: str
+    prenom_utilisateur: str

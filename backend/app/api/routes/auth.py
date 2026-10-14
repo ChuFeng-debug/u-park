@@ -8,7 +8,16 @@ from app.api.deps import get_current_user, get_user_roles
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models import AttributionRole, Role, Utilisateur
-from app.schemas.auth import Token, UserOut, UserRegister
+from app.schemas.auth import (
+    AccountDelete,
+    PasswordChange,
+    Token,
+    UserOut,
+    UserRegister,
+    UserUpdate,
+)
+from app.services import comptes as compte_service
+from app.services.journal import champs_modifies, journaliser
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -60,6 +69,8 @@ def register(payload: UserRegister, db: Session = Depends(get_db)) -> UserOut:
     )
     db.commit()
     db.refresh(user)
+    journaliser(db, user.id_utilisateur, "compte.creation", "utilisateur", user.id_utilisateur,
+                f"rôle : {role.code_role}")
     return _to_user_out(user, db)
 
 
@@ -67,6 +78,8 @@ def register(payload: UserRegister, db: Session = Depends(get_db)) -> UserOut:
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)) -> Token:
     user = db.query(Utilisateur).filter_by(email=form_data.username).first()
     if user is None or not verify_password(form_data.password, user.mot_de_passe_hash):
+        if user is not None:
+            journaliser(db, user.id_utilisateur, "connexion.echec", "utilisateur", user.id_utilisateur)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou mot de passe incorrect",
@@ -76,9 +89,55 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Compte inactif")
 
     token = create_access_token(subject=str(user.id_utilisateur))
+    journaliser(db, user.id_utilisateur, "connexion.reussie", "utilisateur", user.id_utilisateur)
     return Token(access_token=token)
 
 
 @router.get("/me", response_model=UserOut)
 def me(user: Utilisateur = Depends(get_current_user), db: Session = Depends(get_db)) -> UserOut:
     return _to_user_out(user, db)
+
+
+@router.patch("/me", response_model=UserOut)
+def update_me(
+    payload: UserUpdate,
+    user: Utilisateur = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserOut:
+    changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    compte_service.modifier_profil(db, user, changes)
+    journaliser(db, user.id_utilisateur, "compte.modification", "utilisateur",
+                user.id_utilisateur, champs_modifies(changes))
+    return _to_user_out(user, db)
+
+
+@router.post("/me/mot-de-passe", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    payload: PasswordChange,
+    user: Utilisateur = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    compte_service.changer_mot_de_passe(
+        db, user, payload.mot_de_passe_actuel, payload.nouveau_mot_de_passe
+    )
+    journaliser(db, user.id_utilisateur, "compte.mot_de_passe", "utilisateur", user.id_utilisateur)
+
+
+@router.get("/me/export")
+def export_me(user: Utilisateur = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    """Droit d'accès RGPD : export de toutes les données liées au compte."""
+    data = compte_service.exporter(db, user)
+    journaliser(db, user.id_utilisateur, "rgpd.export", "utilisateur", user.id_utilisateur)
+    return data
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    payload: AccountDelete,
+    user: Utilisateur = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """Droit à l'effacement RGPD : le compte est anonymisé et désactivé."""
+    annulees = compte_service.anonymiser(db, user, payload.mot_de_passe)
+    journaliser(db, user.id_utilisateur, "rgpd.suppression", "utilisateur", user.id_utilisateur,
+                f"{annulees} réservation(s) annulée(s)")

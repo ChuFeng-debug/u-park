@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models import Parking
+from app.models import Parking, Utilisateur
 from app.schemas.parking import ParkingCreate, ParkingOut, ParkingUpdate
+from app.services.journal import champs_modifies, journaliser
 
 router = APIRouter(prefix="/parkings", tags=["parkings"])
 
@@ -26,12 +27,13 @@ def get_parking(id_parking: int, db: Session = Depends(get_db)) -> Parking:
 def create_parking(
     payload: ParkingCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> Parking:
     parking = Parking(**payload.model_dump())
     db.add(parking)
     db.commit()
     db.refresh(parking)
+    journaliser(db, admin.id_utilisateur, "parking.creation", "parking", parking.id_parking)
     return parking
 
 
@@ -40,13 +42,16 @@ def update_parking(
     id_parking: int,
     payload: ParkingUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> Parking:
     parking = db.get(Parking, id_parking)
     if parking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parking introuvable")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(parking, field, value)
     db.commit()
     db.refresh(parking)
+    journaliser(db, admin.id_utilisateur, "parking.modification", "parking", parking.id_parking,
+                champs_modifies(changes))
     return parking

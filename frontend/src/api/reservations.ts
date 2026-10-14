@@ -1,8 +1,8 @@
 import { http } from "./http";
-import type { ReservationCreatePayload, ReservationOut } from "../types/api";
+import type { ReservationCreatePayload, ReservationDetailOut, ReservationOut } from "../types/api";
 
-export async function listMyReservations(): Promise<ReservationOut[]> {
-  const { data } = await http.get<ReservationOut[]>("/reservations");
+export async function listMyReservations(): Promise<ReservationDetailOut[]> {
+  const { data } = await http.get<ReservationDetailOut[]>("/reservations");
   return data;
 }
 
@@ -21,5 +21,10 @@ export async function cancelReservation(
     `/reservations/${idReservation}/annuler`,
     { motif_annulation: motifAnnulation ?? null },
   );
+  return data;
+}
+
+export async function enregistrerPassage(idReservation: number): Promise<ReservationOut> {
+  const { data } = await http.post<ReservationOut>(`/reservations/${idReservation}/passage`);
   return data;
 }
