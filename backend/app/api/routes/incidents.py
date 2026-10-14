@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.models import Incident, Utilisateur
 from app.schemas.incident import IncidentCreate, IncidentOut, IncidentUpdate
 from app.services import incidents as incident_service
+from app.services.journal import journaliser
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -18,7 +19,10 @@ def create_incident(
     db: Session = Depends(get_db),
     user: Utilisateur = Depends(get_current_user),
 ) -> Incident:
-    return incident_service.create_incident(db, user, payload)
+    incident = incident_service.create_incident(db, user, payload)
+    journaliser(db, user.id_utilisateur, "incident.creation", "incident", incident.id_incident,
+                f"zone {incident.id_zone}, priorité {incident.priorite_incident}")
+    return incident
 
 
 @router.get("/mes-signalements", response_model=list[IncidentOut])
@@ -56,4 +60,7 @@ def update_incident(
     db: Session = Depends(get_db),
     admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> Incident:
-    return incident_service.update_incident(db, admin, id_incident, payload)
+    incident = incident_service.update_incident(db, admin, id_incident, payload)
+    journaliser(db, admin.id_utilisateur, "incident.modification", "incident", id_incident,
+                f"statut {incident.statut_incident}, priorité {incident.priorite_incident}")
+    return incident

@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models import Parking, Zone
+from app.models import Parking, Utilisateur, Zone
 from app.schemas.zone import ZoneCreate, ZoneOut, ZoneUpdate, ZoneWithDisponibilite
 from app.services.disponibilites import Creneau, compter_places
+from app.services.journal import champs_modifies, journaliser
 from app.services.reservations import roles_autorises
 
 router = APIRouter(prefix="/zones", tags=["zones"])
@@ -66,7 +67,7 @@ def get_zone(
 def create_zone(
     payload: ZoneCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> Zone:
     if db.get(Parking, payload.id_parking) is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parking inconnu")
@@ -74,6 +75,7 @@ def create_zone(
     db.add(zone)
     db.commit()
     db.refresh(zone)
+    journaliser(db, admin.id_utilisateur, "zone.creation", "zone", zone.id_zone)
     return zone
 
 
@@ -82,13 +84,16 @@ def update_zone(
     id_zone: int,
     payload: ZoneUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> Zone:
     zone = db.get(Zone, id_zone)
     if zone is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone introuvable")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(zone, field, value)
     db.commit()
     db.refresh(zone)
+    journaliser(db, admin.id_utilisateur, "zone.modification", "zone", zone.id_zone,
+                champs_modifies(changes))
     return zone

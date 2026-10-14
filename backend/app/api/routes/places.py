@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models import Place, Zone
+from app.models import Place, Utilisateur, Zone
 from app.schemas.place import PlaceCreate, PlaceOut, PlaceUpdate, PlaceWithDisponibilite
 from app.services.disponibilites import Creneau, places_disponibles
+from app.services.journal import champs_modifies, journaliser
 
 router = APIRouter(prefix="/places", tags=["places"])
 
@@ -47,7 +48,7 @@ def get_place(id_place: int, db: Session = Depends(get_db)) -> Place:
 def create_place(
     payload: PlaceCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> Place:
     if db.get(Zone, payload.id_zone) is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Zone inconnue")
@@ -55,6 +56,7 @@ def create_place(
     db.add(place)
     db.commit()
     db.refresh(place)
+    journaliser(db, admin.id_utilisateur, "place.creation", "place", place.id_place)
     return place
 
 
@@ -63,13 +65,16 @@ def update_place(
     id_place: int,
     payload: PlaceUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> Place:
     place = db.get(Place, id_place)
     if place is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Place introuvable")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(place, field, value)
     db.commit()
     db.refresh(place)
+    journaliser(db, admin.id_utilisateur, "place.modification", "place", place.id_place,
+                champs_modifies(changes))
     return place

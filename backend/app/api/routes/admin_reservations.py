@@ -7,9 +7,14 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_roles
 from app.db.session import get_db
 from app.models import Place, Reservation, Utilisateur
-from app.schemas.reservation import ReservationAdminOut, ReservationCancel, ReservationOut
+from app.schemas.reservation import (
+    ReservationAdminOut,
+    ReservationCancel,
+    ReservationOut,
+)
 from app.services import reservations as reservation_service
 from app.services.disponibilites import to_utc_naive
+from app.services.journal import journaliser
 
 router = APIRouter(prefix="/admin/reservations", tags=["administration"])
 
@@ -53,10 +58,13 @@ def list_reservations(
 @router.post("/no-shows")
 def marquer_no_shows(
     db: Session = Depends(get_db),
-    _admin: Utilisateur = Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> dict[str, int]:
     """Marque "no_show" les réservations non honorées après le délai de grâce."""
-    return {"reservations_marquees": reservation_service.marquer_no_shows(db)}
+    marquees = reservation_service.marquer_no_shows(db)
+    journaliser(db, admin.id_utilisateur, "reservation.no_show", "reservation", 0,
+                f"{marquees} réservation(s) marquée(s)")
+    return {"reservations_marquees": marquees}
 
 
 @router.patch("/{id_reservation}/annuler", response_model=ReservationOut)
@@ -64,8 +72,11 @@ def cancel_reservation(
     id_reservation: int,
     payload: ReservationCancel,
     db: Session = Depends(get_db),
-    _admin: Utilisateur = Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> Reservation:
-    return reservation_service.admin_cancel_reservation(
+    reservation = reservation_service.admin_cancel_reservation(
         db, id_reservation, payload.motif_annulation
     )
+    journaliser(db, admin.id_utilisateur, "reservation.annulation_admin", "reservation",
+                id_reservation)
+    return reservation

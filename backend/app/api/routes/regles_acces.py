@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models import RegleAcces, Utilisateur
 from app.schemas.regle_acces import RegleAccesCreate, RegleAccesOut, RegleAccesUpdate
 from app.services import regles_acces as regle_service
+from app.services.journal import champs_modifies, journaliser
 
 router = APIRouter(prefix="/regles-acces", tags=["administration"])
 
@@ -27,9 +28,12 @@ def list_regles(
 def create_regle(
     payload: RegleAccesCreate,
     db: Session = Depends(get_db),
-    _admin: Utilisateur = Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> RegleAccesOut:
-    return regle_service.to_out(db, regle_service.create_regle(db, payload))
+    regle = regle_service.create_regle(db, payload)
+    journaliser(db, admin.id_utilisateur, "regle.creation", "regle_acces", regle.id_regle,
+                f"zone {regle.id_zone}, rôles : {', '.join(sorted(payload.roles))}")
+    return regle_service.to_out(db, regle)
 
 
 @router.patch("/{id_regle}", response_model=RegleAccesOut)
@@ -37,15 +41,19 @@ def update_regle(
     id_regle: int,
     payload: RegleAccesUpdate,
     db: Session = Depends(get_db),
-    _admin: Utilisateur = Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> RegleAccesOut:
-    return regle_service.to_out(db, regle_service.update_regle(db, id_regle, payload))
+    regle = regle_service.update_regle(db, id_regle, payload)
+    journaliser(db, admin.id_utilisateur, "regle.modification", "regle_acces", id_regle,
+                champs_modifies(payload.model_dump(exclude_unset=True)))
+    return regle_service.to_out(db, regle)
 
 
 @router.delete("/{id_regle}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_regle(
     id_regle: int,
     db: Session = Depends(get_db),
-    _admin: Utilisateur = Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> None:
     regle_service.delete_regle(db, id_regle)
+    journaliser(db, admin.id_utilisateur, "regle.suppression", "regle_acces", id_regle)

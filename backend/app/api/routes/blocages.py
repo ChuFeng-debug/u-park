@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models import Blocage, Utilisateur
 from app.schemas.blocage import BlocageCreate, BlocageCreated, BlocageOut
 from app.services import blocages as blocage_service
+from app.services.journal import journaliser
 
 router = APIRouter(prefix="/blocages", tags=["administration"])
 
@@ -30,6 +31,8 @@ def create_blocage(
 ) -> BlocageCreated:
     """Bloque une zone sur une période ; les réservations concernées sont annulées."""
     blocage, annulees = blocage_service.create_blocage(db, admin, payload)
+    journaliser(db, admin.id_utilisateur, "blocage.creation", "zone", blocage.id_zone,
+                f"blocage {blocage.id_blocage}, {annulees} réservation(s) annulée(s)")
     return BlocageCreated(
         **BlocageOut.model_validate(blocage).model_dump(), reservations_annulees=annulees
     )
@@ -39,6 +42,7 @@ def create_blocage(
 def delete_blocage(
     id_blocage: int,
     db: Session = Depends(get_db),
-    _admin: Utilisateur = Depends(require_roles("administrateur")),
+    admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> None:
     blocage_service.delete_blocage(db, id_blocage)
+    journaliser(db, admin.id_utilisateur, "blocage.suppression", "blocage", id_blocage)

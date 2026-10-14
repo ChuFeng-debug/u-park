@@ -13,6 +13,7 @@ from app.schemas.demande_visiteur import (
     DemandeVisiteurOut,
 )
 from app.services import demandes_visiteurs as demande_service
+from app.services.journal import journaliser
 
 router = APIRouter(prefix="/demandes-visiteurs", tags=["demandes visiteurs"])
 
@@ -23,7 +24,10 @@ def create_demande(
     db: Session = Depends(get_db),
     visiteur: Utilisateur = Depends(require_roles("visiteur")),
 ) -> DemandeVisiteur:
-    return demande_service.create_demande(db, visiteur, payload)
+    demande = demande_service.create_demande(db, visiteur, payload)
+    journaliser(db, visiteur.id_utilisateur, "demande.creation", "demande_visiteur",
+                demande.id_demande)
+    return demande
 
 
 @router.get("/mes-demandes", response_model=list[DemandeVisiteurOut])
@@ -59,7 +63,10 @@ def valider_demande(
     admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> DemandeVisiteur:
     """Valide la demande et crée la réservation (place choisie ou attribuée)."""
-    return demande_service.valider_demande(db, admin, id_demande, payload)
+    demande = demande_service.valider_demande(db, admin, id_demande, payload)
+    journaliser(db, admin.id_utilisateur, "demande.validation", "demande_visiteur", id_demande,
+                f"réservation {demande.id_reservation}")
+    return demande
 
 
 @router.post("/{id_demande}/refuser", response_model=DemandeVisiteurOut)
@@ -69,4 +76,6 @@ def refuser_demande(
     db: Session = Depends(get_db),
     admin: Utilisateur = Depends(require_roles("administrateur")),
 ) -> DemandeVisiteur:
-    return demande_service.refuser_demande(db, admin, id_demande, payload)
+    demande = demande_service.refuser_demande(db, admin, id_demande, payload)
+    journaliser(db, admin.id_utilisateur, "demande.refus", "demande_visiteur", id_demande)
+    return demande

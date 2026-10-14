@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes.admin_reservations import router as admin_reservations_router
+from app.api.routes.admin_utilisateurs import router as admin_utilisateurs_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.blocages import router as blocages_router
 from app.api.routes.demandes_visiteurs import router as demandes_visiteurs_router
@@ -43,6 +44,7 @@ app.include_router(blocages_router)
 app.include_router(regles_acces_router)
 app.include_router(admin_reservations_router)
 app.include_router(statistiques_router)
+app.include_router(admin_utilisateurs_router)
 
 
 @app.get("/health")

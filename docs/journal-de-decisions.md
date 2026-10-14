@@ -41,3 +41,10 @@
 - **Taux d'occupation** = heures réservées et honorées / (places en service × amplitude d'ouverture × jours). Les annulations et no-shows ne consomment pas de capacité ; les zones désactivées sont exclues. Les jours sont comptés en heure de Paris, selon le début de la réservation.
 - **Statistiques** (`GET /admin/statistiques?du&au&id_parking`) : totaux, détail par jour et par zone (réservations, honorées, annulations, no-shows et leurs taux). Période par défaut : les 30 derniers jours.
 - **Simulateur de fréquentation** déterministe (`app/seed/simulateur.py`), lancé par le seed : comptes fictifs `simu.*@campus.fr`, profil de fréquentation selon le jour et le public de la zone, environ 8 % d'annulations et 5 % de no-shows. Les règles d'accès du seed s'appliquent depuis la rentrée pour couvrir l'historique.
+
+## 2026-10-14 (RGPD et traçabilité)
+
+- **Journalisation** des actions importantes dans `trace` depuis les routes (`app/services/journal.py`) : identifiants techniques et détail court uniquement, jamais de donnée personnelle ni de texte libre (voir `docs/rgpd.md`). Les échecs de connexion sur un compte existant sont journalisés.
+- **Effacement RGPD par anonymisation** plutôt que suppression physique : les clés étrangères (réservations, journal) restent valides et les statistiques restent justes, sans donnée identifiante. Statut de compte `supprime`.
+- **Export RGPD** au format JSON, profil sans le hash du mot de passe.
+- **Administration des comptes** : un administrateur peut suspendre / réactiver un compte et modifier ses rôles, y compris promouvoir un administrateur ; il ne peut pas se suspendre ni se retirer son propre rôle administrateur.

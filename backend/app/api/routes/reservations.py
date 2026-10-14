@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models import Reservation, Utilisateur
 from app.schemas.reservation import ReservationCancel, ReservationCreate, ReservationOut
 from app.services import reservations as reservation_service
+from app.services.journal import journaliser
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
@@ -37,7 +38,7 @@ def create_reservation(
     db: Session = Depends(get_db),
     user: Utilisateur = Depends(get_current_user),
 ) -> Reservation:
-    return reservation_service.create_reservation(
+    reservation = reservation_service.create_reservation(
         db,
         user,
         get_user_roles(user, db),
@@ -45,6 +46,9 @@ def create_reservation(
         payload.date_debut,
         payload.date_fin,
     )
+    journaliser(db, user.id_utilisateur, "reservation.creation", "reservation",
+                reservation.id_reservation, f"place {reservation.id_place}")
+    return reservation
 
 
 @router.patch("/{id_reservation}/annuler", response_model=ReservationOut)
@@ -54,9 +58,11 @@ def cancel_reservation(
     db: Session = Depends(get_db),
     user: Utilisateur = Depends(get_current_user),
 ) -> Reservation:
-    return reservation_service.cancel_reservation(
+    reservation = reservation_service.cancel_reservation(
         db, user, id_reservation, payload.motif_annulation
     )
+    journaliser(db, user.id_utilisateur, "reservation.annulation", "reservation", id_reservation)
+    return reservation
 
 
 @router.post("/{id_reservation}/passage", response_model=ReservationOut)
@@ -66,4 +72,6 @@ def enregistrer_passage(
     user: Utilisateur = Depends(get_current_user),
 ) -> Reservation:
     """Simule le scan du QR code de la réservation à l'entrée du parking."""
-    return reservation_service.enregistrer_passage(db, user, id_reservation)
+    reservation = reservation_service.enregistrer_passage(db, user, id_reservation)
+    journaliser(db, user.id_utilisateur, "reservation.passage", "reservation", id_reservation)
+    return reservation
