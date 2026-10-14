@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.types import UtcDatetime
+
 StatutDemande = Literal["en_attente", "validee", "refusee"]
 
 
@@ -33,12 +35,17 @@ class DemandeVisiteurOut(BaseModel):
     id_demandeur: int
     id_administrateur: int | None
     id_reservation: int | None
-    date_demande: datetime
-    date_visite_souhaitee: datetime
-    date_fin_visite_souhaitee: datetime
+    date_demande: UtcDatetime
+    date_visite_souhaitee: UtcDatetime
+    date_fin_visite_souhaitee: UtcDatetime
     motif_demande: str
     statut_demande: StatutDemande
-    date_traitement: datetime | None
+    date_traitement: UtcDatetime | None
     commentaire_traitement: str | None
 
     model_config = {"from_attributes": True}
+
+
+class DemandeVisiteurAdminOut(DemandeVisiteurOut):
+    nom_demandeur: str
+    prenom_demandeur: str

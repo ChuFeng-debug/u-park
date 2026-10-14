@@ -48,3 +48,10 @@
 - **Effacement RGPD par anonymisation** plutôt que suppression physique : les clés étrangères (réservations, journal) restent valides et les statistiques restent justes, sans donnée identifiante. Statut de compte `supprime`.
 - **Export RGPD** au format JSON, profil sans le hash du mot de passe.
 - **Administration des comptes** : un administrateur peut suspendre / réactiver un compte et modifier ses rôles, y compris promouvoir un administrateur ; il ne peut pas se suspendre ni se retirer son propre rôle administrateur.
+
+## 2026-10-14 (interface)
+
+- **Interface d'administration** (`/admin`, réservée au rôle administrateur) : tableau de bord (indicateurs, réservations et taux d'occupation par jour, détail par zone), zones et blocages, places, règles d'accès, demandes visiteurs, incidents, réservations, utilisateurs et journal.
+- **Pages par profil** : « Mes demandes » pour les visiteurs, « Incidents » et « Mon compte » pour tous, page publique « Données personnelles ». Après connexion, l'administrateur arrive sur le tableau de bord et le visiteur sur ses demandes.
+- **Graphiques** en SVG sans dépendance (`ColumnChart`) : une seule échelle, info-bulle au survol, légende et vue tableau (accessibilité) ; palette validée pour les daltonismes (indigo, orange, vert d'eau).
+- **Dates** : l'API renvoie désormais les dates avec leur fuseau (`+00:00`). Avant, les dates UTC sans fuseau étaient lues comme des heures locales par le navigateur, avec un décalage de 2 h à l'affichage.

@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.types import UtcDatetime
+
 
 class BlocageCreate(BaseModel):
     id_zone: int
@@ -21,8 +23,8 @@ class BlocageOut(BaseModel):
     id_zone: int
     id_utilisateur: int
     motif_blocage: str
-    date_debut_blocage: datetime
-    date_fin_blocage: datetime
+    date_debut_blocage: UtcDatetime
+    date_fin_blocage: UtcDatetime
 
     model_config = {"from_attributes": True}
 

@@ -42,6 +42,18 @@ l'API sur http://localhost:8000 (`/docs` pour Swagger). Comptes de
 démo : voir la sortie du script de seed (mot de passe commun
 `motdepasse123`).
 
+## Parcours de démonstration
+
+| Profil | Compte | Ce qu'il peut faire |
+|---|---|---|
+| Étudiant | `alice.etudiante@campus.fr` | Choisir un créneau dans le catalogue, réserver, annuler, simuler son passage, signaler un incident |
+| Étudiant PMR | `karim.pmr@campus.fr` | Idem, avec accès aux places PMR |
+| Personnel | `marc.personnel@campus.fr` | Idem, avec accès aux zones réservées aux personnels |
+| Visiteur | `julie.visiteuse@campus.fr` | Demander une place pour un créneau, suivre la réponse |
+| Administrateur | `admin@campus.fr` | Tableau de bord, zones et blocages, règles d'accès, demandes visiteurs, incidents, réservations, comptes, journal |
+
+Tous les utilisateurs disposent de « Mon compte » (profil, mot de passe, export et suppression RGPD).
+
 ## Documentation
 
-Voir [docs/](docs/) pour le cahier des charges, le modèle conceptuel de données et le journal de décisions du projet.
+Voir [docs/](docs/) : modèle conceptuel de données (`mcd_upark.html`), schéma relationnel (`schema.sql`), données personnelles (`rgpd.md`) et journal de décisions. La documentation de l'API est générée par FastAPI sur http://localhost:8000/docs.

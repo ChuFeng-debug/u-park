@@ -51,14 +51,20 @@ def changer_mot_de_passe(db: Session, user: Utilisateur, actuel: str, nouveau: s
 def exporter(db: Session, user: Utilisateur) -> dict:
     """Droit d'accès / portabilité : toutes les données liées au compte."""
 
+    def valeur(value):
+        # Dates stockées en UTC sans fuseau : on l'explicite dans l'export.
+        if isinstance(value, datetime) and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
     def rows(model, *criteres) -> list[dict]:
         return [
-            {col.name: getattr(obj, col.name) for col in model.__table__.columns}
+            {col.name: valeur(getattr(obj, col.name)) for col in model.__table__.columns}
             for obj in db.query(model).filter(*criteres).all()
         ]
 
     profil = {
-        col.name: getattr(user, col.name)
+        col.name: valeur(getattr(user, col.name))
         for col in Utilisateur.__table__.columns
         if col.name != "mot_de_passe_hash"
     }

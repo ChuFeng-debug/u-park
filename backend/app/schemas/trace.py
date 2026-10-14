@@ -1,12 +1,13 @@
-from datetime import datetime
 
 from pydantic import BaseModel
+
+from app.schemas.types import UtcDatetime
 
 
 class TraceOut(BaseModel):
     id_trace: int
     id_utilisateur: int
-    horodatage: datetime
+    horodatage: UtcDatetime
     type_action: str
     entite_cible: str
     identifiant_cible: int

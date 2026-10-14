@@ -3,24 +3,38 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_user_roles
 from app.db.session import get_db
-from app.models import Reservation, Utilisateur
-from app.schemas.reservation import ReservationCancel, ReservationCreate, ReservationOut
+from app.models import Place, Reservation, Utilisateur
+from app.schemas.reservation import (
+    ReservationCancel,
+    ReservationCreate,
+    ReservationDetailOut,
+    ReservationOut,
+)
 from app.services import reservations as reservation_service
 from app.services.journal import journaliser
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
 
-@router.get("", response_model=list[ReservationOut])
+@router.get("", response_model=list[ReservationDetailOut])
 def list_my_reservations(
     db: Session = Depends(get_db), user: Utilisateur = Depends(get_current_user)
-) -> list[Reservation]:
-    return (
-        db.query(Reservation)
+) -> list[ReservationDetailOut]:
+    rows = (
+        db.query(Reservation, Place)
+        .join(Place, Place.id_place == Reservation.id_place)
         .filter(Reservation.id_utilisateur == user.id_utilisateur)
         .order_by(Reservation.date_debut.desc())
         .all()
     )
+    return [
+        ReservationDetailOut(
+            **ReservationOut.model_validate(reservation).model_dump(),
+            numero_place=place.numero_place,
+            id_zone=place.id_zone,
+        )
+        for reservation, place in rows
+    ]
 
 
 @router.get("/{id_reservation}", response_model=ReservationOut)

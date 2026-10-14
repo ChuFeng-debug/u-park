@@ -9,6 +9,7 @@ from app.models import DemandeVisiteur, Utilisateur
 from app.schemas.demande_visiteur import (
     DemandeRefus,
     DemandeValidation,
+    DemandeVisiteurAdminOut,
     DemandeVisiteurCreate,
     DemandeVisiteurOut,
 )
@@ -43,16 +44,25 @@ def list_my_demandes(
     )
 
 
-@router.get("", response_model=list[DemandeVisiteurOut])
+@router.get("", response_model=list[DemandeVisiteurAdminOut])
 def list_demandes(
     statut: Literal["en_attente", "validee", "refusee"] | None = Query(default=None),
     db: Session = Depends(get_db),
     _admin: Utilisateur = Depends(require_roles("administrateur")),
-) -> list[DemandeVisiteur]:
-    query = db.query(DemandeVisiteur)
+) -> list[DemandeVisiteurAdminOut]:
+    query = db.query(DemandeVisiteur, Utilisateur).join(
+        Utilisateur, Utilisateur.id_utilisateur == DemandeVisiteur.id_demandeur
+    )
     if statut is not None:
         query = query.filter(DemandeVisiteur.statut_demande == statut)
-    return query.order_by(DemandeVisiteur.date_visite_souhaitee).all()
+    return [
+        DemandeVisiteurAdminOut(
+            **DemandeVisiteurOut.model_validate(demande).model_dump(),
+            nom_demandeur=user.nom_utilisateur,
+            prenom_demandeur=user.prenom_utilisateur,
+        )
+        for demande, user in query.order_by(DemandeVisiteur.date_visite_souhaitee).all()
+    ]
 
 
 @router.post("/{id_demande}/valider", response_model=DemandeVisiteurOut)

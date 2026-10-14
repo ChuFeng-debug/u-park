@@ -90,3 +90,123 @@ export interface ReservationCreatePayload {
 export interface ApiError {
   detail: string;
 }
+
+// ---------- Compte ----------
+
+export interface UserAdminOut extends UserOut {
+  date_creation_compte: string;
+}
+
+// ---------- Back-office ----------
+
+export interface ReservationDetailOut extends ReservationOut {
+  numero_place: string;
+  id_zone: number;
+}
+
+export interface ReservationAdminOut extends ReservationDetailOut {
+  nom_utilisateur: string;
+  prenom_utilisateur: string;
+}
+
+export interface BlocageOut {
+  id_blocage: number;
+  id_zone: number;
+  id_utilisateur: number;
+  motif_blocage: string;
+  date_debut_blocage: string;
+  date_fin_blocage: string;
+}
+
+export interface BlocageCreated extends BlocageOut {
+  reservations_annulees: number;
+}
+
+export interface RegleAccesOut {
+  id_regle: number;
+  id_zone: number;
+  libelle_regle: string;
+  niveau_priorite: number;
+  date_debut_validite: string;
+  date_fin_validite: string | null;
+  regle_active: boolean;
+  roles: string[];
+}
+
+export type StatutDemande = "en_attente" | "validee" | "refusee";
+
+export interface DemandeVisiteurOut {
+  id_demande: number;
+  id_demandeur: number;
+  id_administrateur: number | null;
+  id_reservation: number | null;
+  date_demande: string;
+  date_visite_souhaitee: string;
+  date_fin_visite_souhaitee: string;
+  motif_demande: string;
+  statut_demande: StatutDemande;
+  date_traitement: string | null;
+  commentaire_traitement: string | null;
+}
+
+export interface DemandeVisiteurAdminOut extends DemandeVisiteurOut {
+  nom_demandeur: string;
+  prenom_demandeur: string;
+}
+
+export type PrioriteIncident = "basse" | "moyenne" | "haute";
+export type StatutIncident = "ouvert" | "en_cours" | "resolu";
+
+export interface IncidentOut {
+  id_incident: number;
+  id_zone: number;
+  id_utilisateur_signalement: number;
+  id_utilisateur_traitant: number | null;
+  description_incident: string;
+  priorite_incident: PrioriteIncident;
+  statut_incident: StatutIncident;
+  date_signalement: string;
+  date_resolution: string | null;
+}
+
+export interface TraceOut {
+  id_trace: number;
+  id_utilisateur: number;
+  horodatage: string;
+  type_action: string;
+  entite_cible: string;
+  identifiant_cible: number;
+  detail_action: string | null;
+}
+
+// ---------- Statistiques ----------
+
+export interface Indicateurs {
+  reservations: number;
+  honorees: number;
+  annulees: number;
+  no_show: number;
+  taux_annulation: number;
+  taux_no_show: number;
+  taux_occupation: number;
+}
+
+export interface StatJour extends Indicateurs {
+  jour: string;
+}
+
+export interface StatZone extends Indicateurs {
+  id_zone: number;
+  nom_zone: string;
+  id_parking: number;
+  nom_parking: string;
+  nombre_places: number;
+}
+
+export interface Statistiques {
+  du: string;
+  au: string;
+  totaux: Indicateurs;
+  par_jour: StatJour[];
+  par_zone: StatZone[];
+}

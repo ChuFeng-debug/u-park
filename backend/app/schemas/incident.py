@@ -1,7 +1,8 @@
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+from app.schemas.types import UtcDatetime
 
 PrioriteIncident = Literal["basse", "moyenne", "haute"]
 StatutIncident = Literal["ouvert", "en_cours", "resolu"]
@@ -26,7 +27,7 @@ class IncidentOut(BaseModel):
     description_incident: str
     priorite_incident: PrioriteIncident
     statut_incident: StatutIncident
-    date_signalement: datetime
-    date_resolution: datetime | None
+    date_signalement: UtcDatetime
+    date_resolution: UtcDatetime | None
 
     model_config = {"from_attributes": True}

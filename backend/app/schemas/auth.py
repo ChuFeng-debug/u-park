@@ -1,7 +1,8 @@
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
+
+from app.schemas.types import UtcDatetime
 
 
 class Token(BaseModel):
@@ -46,7 +47,7 @@ class AccountDelete(BaseModel):
 
 
 class UserAdminOut(UserOut):
-    date_creation_compte: datetime
+    date_creation_compte: UtcDatetime
 
 
 class UserAdminUpdate(BaseModel):

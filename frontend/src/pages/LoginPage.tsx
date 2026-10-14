@@ -18,8 +18,11 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password);
-      navigate("/reservations");
+      const user = await login(email, password);
+      // Chaque profil arrive sur sa page principale.
+      if (user.roles.includes("administrateur")) navigate("/admin");
+      else if (user.roles.includes("visiteur")) navigate("/demandes");
+      else navigate("/");
     } catch (err) {
       setError(extractErrorMessage(err, "Impossible de se connecter"));
     } finally {
