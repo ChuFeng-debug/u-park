@@ -20,6 +20,18 @@ import ReservationsAdminPage from "./pages/admin/ReservationsAdminPage";
 import UtilisateursPage from "./pages/admin/UtilisateursPage";
 import ZonesPage from "./pages/admin/ZonesPage";
 
+/**
+ * Plan de routage de l'application.
+ *
+ * Les routes sont imbriquées dans des « routes de garde » sans chemin propre,
+ * qui ne servent qu'à filtrer l'accès et à rendre un <Outlet /> :
+ *   Layout         → en-tête + pied de page communs à toutes les pages
+ *   ProtectedRoute → exige un utilisateur connecté, quel que soit son rôle
+ *   RoleRoute      → exige en plus un rôle précis (visiteur, administrateur)
+ *
+ * L'intérêt de cette imbrication est qu'une page n'a aucune vérification de
+ * droits à faire elle-même : sa simple position dans l'arbre la protège.
+ */
 export default function App() {
   return (
     <Routes>
@@ -48,6 +60,8 @@ export default function App() {
             <Route path="journal" element={<JournalPage />} />
           </Route>
         </Route>
+        {/* Toute URL inconnue retombe sur le catalogue. `replace` évite
+            d'empiler l'URL erronée dans l'historique du navigateur. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

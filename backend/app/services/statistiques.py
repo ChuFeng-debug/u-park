@@ -27,12 +27,23 @@ def _ratio(numerateur: float, denominateur: float) -> float:
 
 
 class _Compteur:
+    """Accumulateur réutilisé pour les trois axes d'analyse.
+
+    Les mêmes lignes SQL alimentent trois agrégations simultanées : le total
+    général, le détail par jour et le détail par zone. Encapsuler le cumul
+    ici évite d'écrire trois fois la même logique, et garantit que les trois
+    vues restent cohérentes entre elles.
+    """
+
     def __init__(self) -> None:
         self.par_statut: dict[str, int] = defaultdict(int)
         self.heures_honorees = 0.0
 
     def ajouter(self, statut: str, nombre: int, heures: float) -> None:
         self.par_statut[statut] += nombre
+        # Seules les réservations confirmées consomment de la capacité : une
+        # place annulée ou laissée vide (no-show) est restée inoccupée, la
+        # compter gonflerait artificiellement le taux d'occupation.
         if statut == "confirmee":
             self.heures_honorees += heures
 
@@ -45,6 +56,10 @@ class _Compteur:
             "no_show": self.par_statut["no_show"],
             "taux_annulation": _ratio(self.par_statut["annulee"], total),
             "taux_no_show": _ratio(self.par_statut["no_show"], total),
+            # Plafonné à 100 % : une réservation peut déborder des horaires
+            # d'ouverture théoriques (zone dont les horaires ont changé après
+            # coup), et un taux de 103 % serait incompréhensible sur un
+            # tableau de bord.
             "taux_occupation": min(1.0, _ratio(self.heures_honorees, heures_disponibles)),
         }
 
@@ -86,6 +101,11 @@ def calculer(
             .group_by(Place.id_zone)
         ).all()
     )
+    # Dénominateur du taux d'occupation : « places-heures » offertes par jour.
+    # Une zone de 50 places ouverte 10 h offre 500 places-heures ; 250 heures
+    # réservées correspondent donc à 50 % d'occupation. Une zone désactivée
+    # n'offre rien et sort du calcul (capacité nulle), au lieu d'être comptée
+    # comme une zone vide qui tirerait la moyenne vers le bas.
     capacite_jour = {
         zone.id_zone: places_en_service.get(zone.id_zone, 0) * _heures_ouverture(zone)
         if zone.zone_active
@@ -98,6 +118,17 @@ def calculer(
         timezone.utc
     )
     # Jour local du début de réservation (colonnes stockées en UTC sans fuseau).
+    #
+    # Le double appel à timezone() n'est pas une redondance. En PostgreSQL,
+    # l'opérateur AT TIME ZONE change de sens selon le type reçu :
+    #   timezone('UTC', colonne_sans_fuseau) → déclare que cette date EST en
+    #     UTC, et produit une date horodatée ;
+    #   timezone('Europe/Paris', date_horodatée) → la CONVERTIT vers Paris.
+    # Il faut donc les deux : déclarer, puis convertir.
+    #
+    # Ce regroupement est fait par la base plutôt qu'en Python car c'est le
+    # GROUP BY lui-même qui en dépend — regrouper sur le jour UTC placerait
+    # les réservations nocturnes dans la mauvaise journée.
     jour_local = func.date(
         func.timezone(settings.campus_timezone, func.timezone("UTC", Reservation.date_debut))
     )
@@ -119,6 +150,9 @@ def calculer(
         .group_by(jour_local, Place.id_zone, Reservation.statut_reservation)
     ).all()
 
+    # Une seule requête, agrégée sur trois dimensions (jour × zone × statut),
+    # puis ventilée en mémoire sur les trois axes du tableau de bord. Trois
+    # requêtes distinctes auraient coûté trois parcours de la même table.
     total, par_jour, par_zone = _Compteur(), defaultdict(_Compteur), defaultdict(_Compteur)
     for jour, id_zone, statut, nombre, nb_heures in rows:
         nb_heures = float(nb_heures or 0)
@@ -127,6 +161,9 @@ def calculer(
         par_zone[id_zone].ajouter(statut, nombre, nb_heures)
 
     capacite_totale_jour = sum(capacite_jour.values())
+    # La liste des jours est générée, pas déduite des résultats : un jour sans
+    # aucune réservation est absent du GROUP BY, mais doit apparaître à zéro
+    # dans le graphique. Le `defaultdict` fournit alors un compteur vide.
     jours = [du + timedelta(days=i) for i in range(nb_jours)]
     return Statistiques(
         du=du,

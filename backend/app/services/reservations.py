@@ -1,4 +1,21 @@
-"""Règles de gestion des réservations."""
+"""Règles de gestion des réservations.
+
+Cœur métier du projet. Les routes HTTP ne font qu'appeler ces fonctions : en
+isolant les règles ici, elles restent testables sans serveur ni requête, et
+sont réutilisables par la validation des demandes visiteurs comme par le
+back-office.
+
+Une réservation suit une machine à états simple :
+
+    confirmee ──(annulation)──────▶ annulee
+        │
+        ├──(scan à l'entrée)─────▶ confirmee + date_passage
+        │
+        └──(délai dépassé sans passage)──▶ no_show
+
+Les transitions sont irréversibles : on n'annule pas une réservation déjà
+honorée, et un no-show ne redevient jamais confirmé.
+"""
 
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -72,6 +89,13 @@ def _check_access(
 
 
 def _place_has_overlap(db: Session, id_place: int, date_debut: datetime, date_fin: datetime) -> bool:
+    """Cette place est-elle déjà prise sur un créneau recoupant celui demandé ?
+
+    Le test de recouvrement est le couple d'inégalités `debut_A < fin_B` et
+    `fin_A > debut_B` : deux intervalles se chevauchent si chacun commence
+    avant que l'autre ne se termine. Les inégalités strictes autorisent les
+    créneaux adjacents (10h–12h puis 12h–14h sur la même place).
+    """
     return (
         db.query(Reservation.id_reservation)
         .filter(
@@ -88,6 +112,12 @@ def _place_has_overlap(db: Session, id_place: int, date_debut: datetime, date_fi
 def _user_has_overlap(
     db: Session, id_utilisateur: int, date_debut: datetime, date_fin: datetime
 ) -> bool:
+    """Même test de recouvrement, mais appliqué à l'utilisateur.
+
+    Règle métier distincte de la précédente : elle empêche une personne de
+    monopoliser plusieurs places au même moment. Une place peut être libre et
+    la réservation malgré tout refusée pour ce motif.
+    """
     return (
         db.query(Reservation.id_reservation)
         .filter(
@@ -115,7 +145,14 @@ def create_reservation(
     """Crée une réservation confirmée après contrôle des règles de gestion.
 
     `via_demande` : réservation créée par la validation d'une demande visiteur.
-    `commit=False` : laisse l'appelant valider la transaction.
+    `commit=False` : laisse l'appelant valider la transaction. C'est ce qui
+    permet à la validation d'une demande d'enregistrer la demande et sa
+    réservation en une seule transaction — soit les deux, soit aucune.
+
+    Les contrôles sont volontairement ordonnés du moins au plus coûteux :
+    droits et dates d'abord (sans accès à la base), puis existence de la
+    place et de la zone, enfin les tests de chevauchement. Inutile
+    d'interroger les réservations pour un créneau déjà passé.
     """
     if user_roles == {VISITEUR_ROLE} and not via_demande:
         raise AccessDeniedError("Les visiteurs doivent passer par une demande de place")
@@ -157,7 +194,17 @@ def create_reservation(
     try:
         db.flush()
     except IntegrityError:
-        # Deux demandes simultanées : la contrainte d'exclusion en base tranche.
+        # Filet de sécurité contre les accès concurrents.
+        #
+        # Les tests de chevauchement ci-dessus laissent une fenêtre : entre
+        # leur exécution et l'INSERT, une autre requête peut avoir réservé la
+        # même place. Deux utilisateurs cliquant simultanément passeraient
+        # donc tous les deux les vérifications.
+        #
+        # La base tranche : une contrainte EXCLUDE USING gist (voir la
+        # migration 5d5d04aa650e) interdit physiquement deux réservations
+        # confirmées qui se chevauchent sur une même place. Le perdant reçoit
+        # une IntegrityError, qu'on traduit ici en erreur métier lisible.
         db.rollback()
         raise ConflictError("Place déjà réservée sur ce créneau")
     if commit:
@@ -188,6 +235,13 @@ def admin_cancel_reservation(db: Session, id_reservation: int, motif: str | None
 
 
 def _cancel(db: Session, reservation: Reservation, motif: str | None) -> Reservation:
+    """Transition vers « annulee », avec les gardes de la machine à états.
+
+    Les trois refus ci-dessous couvrent les transitions interdites : annuler
+    deux fois, annuler un no-show déjà constaté, et annuler après l'entrée du
+    véhicule — à ce stade la place a effectivement été occupée, l'annuler
+    fausserait les statistiques d'occupation.
+    """
     if reservation.statut_reservation == "annulee":
         raise ConflictError("Réservation déjà annulée")
     if reservation.statut_reservation == "no_show":
@@ -235,6 +289,8 @@ def enregistrer_passage(db: Session, user: Utilisateur, id_reservation: int) -> 
     if reservation.date_passage is not None:
         raise ConflictError("Passage déjà enregistré")
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    # Tolérance d'avance : on accepte le véhicule un peu avant l'heure, sans
+    # quoi un conducteur arrivé cinq minutes en avance serait refusé.
     ouverture = reservation.date_debut - timedelta(minutes=settings.passage_avance_minutes)
     if not ouverture <= now < reservation.date_fin:
         raise InvalidRequestError(
@@ -249,9 +305,19 @@ def enregistrer_passage(db: Session, user: Utilisateur, id_reservation: int) -> 
 
 def marquer_no_shows(db: Session, now: datetime | None = None) -> int:
     """Passe en "no_show" les réservations confirmées sans passage une fois le
-    délai de grâce écoulé. Renvoie le nombre de réservations marquées."""
+    délai de grâce écoulé. Renvoie le nombre de réservations marquées.
+
+    Faute d'ordonnanceur (cron, Celery) dans ce projet, le balayage est
+    déclenché à la demande, notamment avant le calcul des statistiques, pour
+    que celles-ci portent sur des statuts à jour. Le paramètre `now`
+    injectable rend la fonction testable sans attendre le délai réel.
+    """
     now = now or datetime.now(timezone.utc).replace(tzinfo=None)
     limite = now - timedelta(minutes=settings.no_show_delai_minutes)
+    # UPDATE ... WHERE en un seul ordre SQL plutôt qu'une boucle Python.
+    # `synchronize_session=False` dispense SQLAlchemy de répercuter la
+    # modification sur les objets déjà chargés en session : ils ne sont pas
+    # réutilisés ensuite, et le faire imposerait une requête de relecture.
     marquees = (
         db.query(Reservation)
         .filter(

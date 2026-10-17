@@ -21,9 +21,18 @@ interface ColumnChartProps {
   height?: number;
 }
 
+// Marges réservées aux axes : la zone de tracé est le rectangle restant.
+// C'est la convention classique « margin convention » des graphiques SVG.
 const MARGIN = { top: 12, right: 8, bottom: 28, left: 44 };
 const GAP = 2; // espace entre segments empilés
 
+/**
+ * Mesure la largeur réelle du conteneur pour rendre le SVG responsive.
+ *
+ * Un SVG n'a pas de notion de « 100 % » exploitable pour calculer des
+ * coordonnées : il faut une largeur en pixels. Le ResizeObserver la fournit
+ * et déclenche un nouveau rendu à chaque redimensionnement de la fenêtre.
+ */
 function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
   const ref = useRef<T>(null);
   const [width, setWidth] = useState(600);
@@ -31,11 +40,21 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
     if (!ref.current) return;
     const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
     observer.observe(ref.current);
+    // Sans ce désabonnement, l'observateur survivrait au démontage du
+    // composant et provoquerait une fuite mémoire.
     return () => observer.disconnect();
   }, []);
   return [ref, width];
 }
 
+/**
+ * Arrondit le maximum de l'axe vertical à une valeur « lisible ».
+ *
+ * Un axe qui s'arrêterait à 4 237 donnerait des graduations illisibles. On
+ * cherche donc le plus petit pas de la forme 1, 2, 2.5, 5 ou 10 × 10ⁿ qui
+ * permette de couvrir la valeur en ~4 graduations, puis on arrondit au
+ * multiple supérieur de ce pas. 4 237 devient ainsi 5 000 (pas de 1 250).
+ */
 function niceMax(value: number): number {
   if (value <= 0) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(value));
@@ -52,6 +71,13 @@ function roundedTop(x: number, y: number, w: number, h: number): string {
 /**
  * Histogramme (empilé si plusieurs séries) en SVG, avec info-bulle au survol,
  * légende et vue tableau. Une seule échelle verticale.
+ *
+ * Écrit à la main plutôt qu'avec une librairie de graphiques : le besoin se
+ * limite à des colonnes empilées, et le SVG généré hérite directement des
+ * couleurs et des polices de la feuille de style de l'application.
+ *
+ * La vue tableau n'est pas un simple confort : elle rend les chiffres
+ * accessibles aux lecteurs d'écran, pour lesquels un dessin SVG reste muet.
  */
 export default function ColumnChart({
   title,
@@ -67,15 +93,24 @@ export default function ColumnChart({
   const [hovered, setHovered] = useState<number | null>(null);
   const [showTable, setShowTable] = useState(false);
 
+  // Les séries étant empilées, c'est le TOTAL par catégorie qui détermine la
+  // hauteur de la colonne, donc l'échelle — pas la plus grande valeur isolée.
   const totals = values.map((row) => series.reduce((sum, s) => sum + (row[s.key] ?? 0), 0));
   const yMax = max ?? niceMax(Math.max(0, ...totals));
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => t * yMax);
 
+  // Géométrie du tracé.
   const plotW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const plotH = height - MARGIN.top - MARGIN.bottom;
+  // `band` = largeur allouée à une catégorie ; la colonne n'en occupe que 62 %,
+  // le reste formant l'espacement entre colonnes.
   const band = categories.length ? plotW / categories.length : 0;
   const barW = Math.max(2, Math.min(28, band * 0.62));
+  // Échelle verticale. L'axe des y du SVG pointe vers le BAS : on soustrait
+  // donc la hauteur proportionnelle pour que les grandes valeurs montent.
   const y = (v: number) => MARGIN.top + plotH - (v / yMax) * plotH;
+  // Avec 90 jours de données, les dates se chevaucheraient sous l'axe : on
+  // n'affiche qu'une étiquette tous les ~64 px de large disponible.
   const labelStep = Math.max(1, Math.ceil(categories.length / Math.max(1, plotW / 64)));
 
   return (
@@ -141,15 +176,21 @@ export default function ColumnChart({
             ))}
             {values.map((row, i) => {
               const x = MARGIN.left + i * band + (band - barW) / 2;
+              // `base` cumule la hauteur déjà empilée : chaque segment démarre
+              // là où le précédent s'est arrêté.
               let base = 0;
+              // On ignore les séries à zéro pour qu'une série vide ne consomme
+              // pas l'arrondi réservé au sommet réel de la pile.
               const visible = series.filter((s) => (row[s.key] ?? 0) > 0);
               return (
+                // Le survol d'une colonne estompe toutes les autres.
                 <g key={categories[i]} opacity={hovered === null || hovered === i ? 1 : 0.45}>
                   {visible.map((s, index) => {
                     const value = row[s.key];
                     const top = y(base + value);
                     const bottom = y(base);
                     base += value;
+                    // Seul le dernier segment porte le sommet arrondi.
                     const isTop = index === visible.length - 1;
                     // Espace de 2 px au-dessus de chaque segment recouvert par un autre.
                     const h = Math.max(0, bottom - top - (isTop ? 0 : GAP));
@@ -170,7 +211,8 @@ export default function ColumnChart({
                       {categories[i]}
                     </text>
                   )}
-                  {/* Zone de survol plus large que la colonne. */}
+                  {/* Zone de survol invisible couvrant toute la bande : viser
+                      une colonne étroite de 2 px serait impossible à la souris. */}
                   <rect
                     x={MARGIN.left + i * band}
                     y={MARGIN.top}

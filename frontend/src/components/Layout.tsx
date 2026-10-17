@@ -2,13 +2,24 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLE_LABEL } from "../utils/format";
 
+/**
+ * Ossature commune à toutes les pages : en-tête, zone de contenu, pied de page.
+ *
+ * Monté comme route parente dans App.tsx, il reste affiché pendant que
+ * l'<Outlet /> change de page. L'en-tête n'est donc jamais redessiné d'une
+ * navigation à l'autre.
+ */
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  // Le menu s'adapte au profil : un visiteur n'a aucune raison de voir
+  // l'entrée « Administration », et inversement.
   const roles = user?.roles ?? [];
   const isAdmin = roles.includes("administrateur");
   const isVisitor = roles.includes("visiteur");
 
+  // Après déconnexion, on quitte la page courante : elle est peut-être
+  // protégée, et y rester afficherait une redirection vers /login.
   function handleLogout() {
     logout();
     navigate("/");
@@ -23,6 +34,10 @@ export default function Layout() {
           </span>
           U-Park
         </Link>
+        {/* NavLink (et non Link) ajoute seul la classe « active » sur l'entrée
+            correspondant à l'URL courante. `end` limite la correspondance au
+            chemin exact : sans lui, « / » serait actif sur toutes les pages,
+            puisque toutes les URL commencent par « / ». */}
         <nav className="layout__nav" aria-label="Navigation principale">
           <NavLink to="/" end>
             Catalogue

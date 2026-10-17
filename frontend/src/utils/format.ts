@@ -1,3 +1,15 @@
+/**
+ * Mise en forme pour l'affichage, regroupée ici pour deux raisons.
+ *
+ * 1. Les tables de libellés traduisent les valeurs techniques du backend
+ *    (`no_show`, `en_attente`…) en français lisible. Le code stocké en base
+ *    reste neutre ; seule cette couche décide de son rendu.
+ * 2. Les conversions de dates sont le point sensible du projet : l'API
+ *    échange des horodatages ISO en UTC, alors que les champs <input> du
+ *    navigateur travaillent en heure locale. Tout passage de l'un à l'autre
+ *    passe par ce fichier, pour éviter des décalages d'une ou deux heures
+ *    disséminés dans les pages.
+ */
 export const ROLE_LABEL: Record<string, string> = {
   etudiant: "Étudiant",
   personnel: "Personnel",
@@ -41,6 +53,9 @@ export function formatDateTime(iso: string): string {
   });
 }
 
+// Le `T00:00` sans suffixe « Z » est volontaire : il force l'interprétation
+// en heure locale. Avec « 2026-10-17 » seul, la norme impose une lecture en
+// UTC, et le jour affiché reculerait d'une journée à l'ouest de Greenwich.
 export function formatDay(isoDate: string): string {
   return new Date(`${isoDate}T00:00`).toLocaleDateString("fr-FR", {
     weekday: "short",
@@ -71,7 +86,14 @@ export function toDateInput(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** Valeur d'un <input type="datetime-local"> → ISO 8601 (UTC). */
+/**
+ * Valeur d'un <input type="datetime-local"> → ISO 8601 (UTC).
+ *
+ * L'input rend une chaîne sans fuseau (« 2026-10-17T14:00 »), que `new Date`
+ * interprète en heure locale ; `toISOString` la reconvertit en UTC. C'est à
+ * ce point précis que l'heure saisie par l'utilisateur devient l'heure
+ * universelle attendue par l'API.
+ */
 export function localInputToIso(value: string): string {
   return new Date(value).toISOString();
 }

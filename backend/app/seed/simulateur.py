@@ -27,6 +27,12 @@ from app.core.config import settings
 from app.models import AttributionRole, Place, Reservation, Utilisateur, Zone
 from app.services.reservations import roles_autorises
 
+# Graine fixe du générateur pseudo-aléatoire. C'est elle qui rend la
+# simulation reproductible : `random.Random(GRAINE)` produit toujours la même
+# suite de tirages, donc le même jeu de données à chaque exécution. Sans cela,
+# les chiffres du tableau de bord changeraient à chaque rechargement de la
+# base et il deviendrait impossible de vérifier un calcul ou une capture
+# d'écran d'une démonstration à l'autre.
 GRAINE = 2026
 
 # Coefficient de fréquentation par jour de la semaine (lundi = 0).
@@ -110,7 +116,16 @@ def _public(db: Session, zone: Zone, jour: date) -> str:
 
 
 def _heure_arrivee(rng: random.Random) -> float:
-    # Pic d'arrivée vers 8 h 30, quelques arrivées plus tardives.
+    """Heure d'arrivée tirée au sort, en heures décimales (8.5 = 8 h 30).
+
+    Loi normale tronquée plutôt qu'un tirage uniforme : les arrivées sur un
+    campus se concentrent autour de l'heure des premiers cours. Moyenne à
+    8 h 45, écart-type de 48 min, ce qui place environ deux tiers des
+    arrivées entre 8 h et 9 h 30.
+
+    Le troncage par max/min borne la queue de la gaussienne, qui est infinie
+    et produirait sinon quelques arrivées à 3 h du matin ou à 20 h.
+    """
     return max(7.5, min(rng.gauss(8.75, 0.8), 14.0))
 
 
@@ -149,8 +164,16 @@ def simuler(
     debut_periode = now_local.date() - timedelta(days=jours_passes)
     for offset in range(jours_passes + jours_futurs + 1):
         jour = debut_periode + timedelta(days=offset)
+        # Variation de ±10 % propre à la journée : sans elle, deux mardis
+        # consécutifs afficheraient exactement la même fréquentation et la
+        # courbe du tableau de bord serait un peigne parfaitement régulier.
         bruit = rng.uniform(0.9, 1.1)
-        # Chaque compte n'est utilisé qu'une fois par jour : pas de chevauchement.
+        # Tirage sans remise : les comptes sont mélangés en début de journée,
+        # puis dépilés un à un (`pop`). Chaque compte ne sert donc qu'une fois
+        # par jour, ce qui garantit l'absence de chevauchement pour un même
+        # utilisateur — la règle qu'applique précisément `_user_has_overlap`.
+        # Les réservations étant insérées en masse, elles ne passent pas par
+        # les contrôles du service : c'est ici qu'il faut respecter la règle.
         disponibles = {
             "etudiant": rng.sample(population.etudiants, len(population.etudiants)),
             "pmr": rng.sample(population.etudiants_pmr, len(population.etudiants_pmr)),
@@ -163,6 +186,11 @@ def simuler(
             ouverture = zone.heure_ouverture.hour + zone.heure_ouverture.minute / 60
             fermeture = zone.heure_fermeture.hour + zone.heure_fermeture.minute / 60
             for place in places_par_zone[zone.id_zone]:
+                # Probabilité qu'une place donnée soit prise ce jour-là :
+                # taux de base du public × coefficient du jour de la semaine
+                # × bruit. Un tirage par place reproduit un remplissage
+                # dispersé, là où remplir les n premières places d'affilée
+                # donnerait un résultat visiblement artificiel.
                 cle = "pmr" if place.type_place == "pmr" else public
                 proba = REMPLISSAGE[cle] * FACTEUR_JOUR[jour.weekday()] * bruit
                 if rng.random() >= proba:
@@ -173,9 +201,15 @@ def simuler(
 
                 creneaux = []
                 debut = max(ouverture, _heure_arrivee(rng))
+                # Un personnel reste la journée ; un étudiant repart entre
+                # deux cours, d'où des durées nettement plus dispersées.
                 duree = rng.uniform(7, 9.5) if pool == "personnel" else rng.uniform(3, 8)
                 fin = min(fermeture, debut + duree)
                 creneaux.append((debut, fin))
+                # Rotation de l'après-midi : la place libérée peut resservir.
+                # Les marges (0,5 h après le départ, 1,5 h avant la fermeture)
+                # évitent de produire un second créneau qui chevaucherait le
+                # premier ou se réduirait à quelques minutes.
                 if fin + 0.5 < fermeture - 1.5 and rng.random() < PROBA_APRES_MIDI:
                     debut2 = fin + rng.uniform(0.5, 1.5)
                     creneaux.append((debut2, min(fermeture, debut2 + rng.uniform(1.5, 4))))
@@ -189,6 +223,10 @@ def simuler(
                         _reservation(rng, id_user, place.id_place, date_debut, date_fin, now_utc)
                     )
 
+    # Insertion en masse par paquets de 5 000. Créer des objets Reservation et
+    # les confier à l'ORM coûterait ici plusieurs minutes pour des dizaines de
+    # milliers de lignes ; l'insert de bas niveau les envoie en quelques
+    # requêtes. Le découpage évite une requête unique trop volumineuse.
     for i in range(0, len(lignes), 5000):
         db.execute(Reservation.__table__.insert(), lignes[i : i + 5000])
     db.flush()
@@ -203,6 +241,12 @@ def _reservation(
     date_fin: datetime,
     now: datetime,
 ) -> dict:
+    """Construit une ligne de réservation et tire son issue (honorée, annulée, no-show).
+
+    L'anticipation de réservation (de 2 h à 3 jours) est simulée pour que la
+    colonne `date_creation_resa` soit exploitable, et bornée par `now` afin
+    qu'aucune réservation ne paraisse créée dans le futur.
+    """
     creation = date_debut - timedelta(hours=rng.uniform(2, 72))
     ligne = {
         "id_utilisateur": id_user,
@@ -215,6 +259,10 @@ def _reservation(
         "motif_annulation": None,
         "date_passage": None,
     }
+    # Un tirage unique réparti sur des intervalles disjoints : [0 ; 0,08[ pour
+    # l'annulation, [0,08 ; 0,13[ pour le no-show, le reste pour une visite
+    # honorée. Deux tirages indépendants auraient pu désigner les deux issues
+    # à la fois, qui s'excluent pourtant mutuellement.
     tirage = rng.random()
     if tirage < TAUX_ANNULATION:
         ligne["statut_reservation"] = "annulee"
@@ -223,9 +271,14 @@ def _reservation(
         ligne["motif_annulation"] = rng.choice(
             ["Changement d'emploi du temps", "Cours annulé", "Covoiturage", None]
         )
+    # Seuls les créneaux dont le délai de grâce est écoulé peuvent avoir une
+    # issue constatée. Les réservations à venir restent « confirmee » sans
+    # date de passage, exactement comme en exploitation réelle.
     elif date_debut < now - timedelta(minutes=settings.no_show_delai_minutes):
         if tirage < TAUX_ANNULATION + TAUX_NO_SHOW:
             ligne["statut_reservation"] = "no_show"
         else:
+            # Arrivée un peu avant ou après l'heure réservée : c'est ce que
+            # mesure l'écart entre date_debut et date_passage.
             ligne["date_passage"] = date_debut + timedelta(minutes=rng.uniform(-10, 25))
     return ligne

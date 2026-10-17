@@ -70,8 +70,17 @@ const ROLE_LABEL: Record<string, string> = {
   administrateur: "administrateurs",
 };
 
-/** Miroir des règles appliquées par l'API, pour ne proposer que ce qui est réservable. */
+/**
+ * Miroir des règles appliquées par l'API, pour ne proposer que ce qui est
+ * réservable.
+ *
+ * Cette duplication de la règle métier est assumée : elle sert uniquement à
+ * masquer des boutons voués à l'échec. L'API revalide systématiquement, donc
+ * une divergence entre les deux dégrade l'ergonomie, jamais la sécurité.
+ */
 function isVisitorOnly(user: UserOut | null): boolean {
+  // « every » et non « some » : un visiteur qui serait aussi personnel garde
+  // le droit de réserver directement.
   return !!user && user.roles.every((role) => role === "visiteur");
 }
 
@@ -93,6 +102,13 @@ function placeStatus(place: PlaceWithDisponibilite): string {
   return place.disponible ? "disponible" : "réservée";
 }
 
+/**
+ * Liste dépliable des places d'une zone, pour le créneau choisi en haut de page.
+ *
+ * Les places ne sont chargées qu'à l'ouverture : une page de catalogue peut
+ * compter des dizaines de zones, les interroger toutes d'emblée représenterait
+ * autant de requêtes pour des listes que l'utilisateur n'ouvrira pas.
+ */
 function ZonePlaces({
   zone,
   creneau,
@@ -128,6 +144,10 @@ function ZonePlaces({
   }, [zone.id_zone, creneau]);
 
   // Recharge à l'ouverture et à chaque changement de créneau.
+  // `load` est enveloppé dans useCallback et dépend du créneau : modifier le
+  // créneau produit une nouvelle fonction, ce qui relance cet effet. C'est
+  // aussi pourquoi `creneau` doit être mémoïsé par le parent — un objet
+  // recréé à chaque rendu provoquerait ici une boucle de rechargement.
   useEffect(() => {
     if (expanded) void load();
   }, [expanded, load]);
@@ -207,6 +227,11 @@ function ZonePlaces({
           </li>
         ))}
       </ul>
+      {/* Comparaison par référence, volontaire : le parent recrée l'objet
+          `creneau` dès que l'utilisateur change de date ou d'heure, donc
+          l'égalité échoue et la confirmation disparaît d'elle-même. Elle ne
+          peut ainsi jamais rester affichée sous un créneau qu'elle ne
+          concerne plus. */}
       {message?.creneau === creneau && <p className="form-success">{message.text}</p>}
       {error && <p className="form-error">{error}</p>}
       <button type="button" className="link-button" onClick={hide}>
@@ -256,6 +281,13 @@ function CreneauPicker({
   );
 }
 
+/**
+ * Page d'accueil : parkings, zones et disponibilité sur un créneau choisi.
+ *
+ * Le créneau est l'état central de l'écran. Il n'est saisi qu'une fois, en
+ * haut de page, et toutes les disponibilités affichées en découlent — plutôt
+ * que de demander des dates à chaque tentative de réservation.
+ */
 export default function CataloguePage() {
   const { user } = useAuth();
   const [parkings, setParkings] = useState<ParkingOut[]>([]);
@@ -264,6 +296,10 @@ export default function CataloguePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Vaut null tant que la saisie est incohérente (fin avant début), ce qui
+  // suspend l'affichage des places au lieu d'interroger l'API pour rien.
+  // useMemo garantit en outre une référence stable tant que le formulaire ne
+  // change pas : cet objet sert de dépendance aux effets des zones.
   const creneau = useMemo(() => toCreneau(creneauForm), [creneauForm]);
 
   const loadZones = useCallback(async () => {
@@ -276,6 +312,9 @@ export default function CataloguePage() {
     }
   }, [creneau]);
 
+  // Les parkings ne dépendent pas du créneau : une seule requête au montage,
+  // d'où le tableau de dépendances vide. Les zones, elles, sont rechargées
+  // par l'effet suivant à chaque changement de créneau.
   useEffect(() => {
     listParkings()
       .then(setParkings)
@@ -287,6 +326,9 @@ export default function CataloguePage() {
     void loadZones();
   }, [loadZones]);
 
+  // L'API renvoie les zones à plat ; l'affichage les veut regroupées sous
+  // leur parking. On indexe donc une fois par id_parking plutôt que de
+  // refiltrer le tableau complet pour chacun d'eux.
   const zonesByParking = useMemo(() => {
     const grouped: Record<number, ZoneWithDisponibilite[]> = {};
     for (const zone of zones) {
