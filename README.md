@@ -56,4 +56,4 @@ Tous les utilisateurs disposent de « Mon compte » (profil, mot de passe, expor
 
 ## Documentation
 
-Voir [docs/](docs/) : modèle conceptuel de données (`mcd_upark.html`), schéma relationnel (`schema.sql`), données personnelles (`rgpd.md`) et journal de décisions. La documentation de l'API est générée par FastAPI sur http://localhost:8000/docs.
+Voir [docs/](docs/) : [cadrage](docs/cadrage.md) (besoin, personas, périmètre, rôles, risques), [backlog](docs/backlog.md), modèle conceptuel de données (`mcd_upark.html`), schéma relationnel (`schema.sql`), données personnelles (`rgpd.md`) et journal de décisions. La documentation de l'API est générée par FastAPI sur http://localhost:8000/docs.
